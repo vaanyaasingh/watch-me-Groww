@@ -53,9 +53,13 @@ news-retrieval suites, runs offline.
 
 News embeddings work the same way: `EMBEDDING_PROVIDER=mock|gemini`
 (default `mock`) picks a deterministic, hash-derived embedding with zero
-network/credentials, or the real Gemini embeddings endpoint (needs
-`GEMINI_API_KEY`). Every test in this project runs against the mock one —
-the Gemini path hasn't been exercised against a live key.
+network/credentials, or the real Gemini embeddings endpoint. The Gemini
+path uses Vertex AI in production — set `GOOGLE_CLOUD_PROJECT` (the same
+GCP project already backing Cloud Run/Cloud SQL) and it authenticates via
+that service's own credentials, no separate key to manage; `GEMINI_API_KEY`
+is also supported as a local/non-GCP fallback. Every test in this project
+runs against the mock provider — the Gemini path hasn't been exercised
+against a live key or a live GCP project.
 
 **Frontend** (Next.js App Router, TypeScript, Tailwind):
 

@@ -4,11 +4,23 @@ to decide significance; only to embed news text for retrieval ranking.
 
 Two implementations, selected the same way MarketDataProvider is
 (EMBEDDING_PROVIDER=gemini|mock, default mock): GeminiEmbeddingProvider
-calls the real API and needs GEMINI_API_KEY; MockEmbeddingProvider derives
-a deterministic vector from a text hash, so news ingestion — like
-everything else — still runs with zero network calls and zero credentials
-when no key is configured. GeminiEmbeddingProvider is unverified against a
-live key (none was available while building this phase); MockEmbeddingProvider
+calls the real API; MockEmbeddingProvider derives a deterministic vector
+from a text hash, so news ingestion — like everything else — still runs
+with zero network calls and zero credentials by default.
+
+docs/plan.md §4 says Gemini is reached "via Vertex AI or direct" — this
+project uses Vertex AI, not a bare API key, because every other GCP piece
+(Cloud Run, Cloud SQL, Firebase Auth) already runs on GCP-native auth: in
+Cloud Run, GeminiEmbeddingProvider picks up the service's own attached
+service-account credentials automatically (Application Default
+Credentials), so there's no separate GEMINI_API_KEY secret to create,
+rotate, or leak. Set GOOGLE_CLOUD_PROJECT (and optionally
+GOOGLE_CLOUD_LOCATION) — the same project already backing Cloud Run/Cloud
+SQL — and the google-genai SDK resolves credentials/project/location from
+the environment on its own. A bare API key (GEMINI_API_KEY, no GCP project
+needed) is still supported as a fallback for quick local testing outside
+GCP. GeminiEmbeddingProvider is unverified against a live key or a live GCP
+project (neither was available while building this phase); MockEmbeddingProvider
 is what every test in this project actually runs against.
 """
 
@@ -65,15 +77,30 @@ class GeminiEmbeddingProvider:
     MODEL_NAME = "gemini-embedding-001"
 
     def __init__(self):
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "GEMINI_API_KEY is not set — set it, or leave "
-                "EMBEDDING_PROVIDER unset/'mock' to run without Gemini access."
-            )
         from google import genai  # imported lazily so MockEmbeddingProvider needs no dependency at all
 
-        self._client = genai.Client(api_key=api_key)
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        api_key = os.environ.get("GEMINI_API_KEY")
+
+        if project:
+            # Vertex AI path (the production one, see module docstring):
+            # project/location/credentials are resolved from the
+            # environment and Application Default Credentials — no key here.
+            self._client = genai.Client(
+                vertexai=True,
+                project=project,
+                location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            )
+        elif api_key:
+            # Direct API key path — local/non-GCP fallback only.
+            self._client = genai.Client(api_key=api_key)
+        else:
+            raise RuntimeError(
+                "Neither GOOGLE_CLOUD_PROJECT (Vertex AI, used in production) "
+                "nor GEMINI_API_KEY (direct API, local fallback) is set — set "
+                "one, or leave EMBEDDING_PROVIDER unset/'mock' to run without "
+                "Gemini access."
+            )
 
     def embed(self, text: str) -> list[float]:
         from google.genai import types
