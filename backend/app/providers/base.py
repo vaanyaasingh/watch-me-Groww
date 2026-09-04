@@ -4,32 +4,21 @@ Phase 0 deliverable: the interface only. Concrete providers (yfinance, AMFI,
 mock) are implemented in Phase 1 and selected via config, so the rest of the
 codebase never talks to yfinance/AMFI/Gemini directly — every route handler
 and background job depends on this abstraction instead (see
-docs/SOURCE_OF_TRUTH.md, "External data access").
+docs/SOURCE_OF_TRUTH.md, "External data access"). A mock implementation
+lands first in Phase 1 specifically so judges can run the whole app without
+live API credentials.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime
-from enum import Enum
-
-
-class InstrumentType(str, Enum):
-    EQUITY = "equity"
-    ETF = "etf"
-    MF = "mf"
-
-
-class Exchange(str, Enum):
-    NSE = "NSE"
-    BSE = "BSE"
 
 
 @dataclass(frozen=True)
 class Quote:
     """A single point-in-time snapshot of an instrument's price and ratios."""
 
-    symbol: str
-    exchange: Exchange
+    instrument_id: str
     price: float
     # Ratios are provider-supplied and vary by instrument type (e.g. P/E for
     # equities, expense ratio for ETFs) — kept as a dict rather than fixed
@@ -40,7 +29,7 @@ class Quote:
 
 
 @dataclass(frozen=True)
-class HistoricalBar:
+class PricePoint:
     """One OHLCV bar, used by the significance engine for rolling volatility."""
 
     date: date
@@ -52,7 +41,7 @@ class HistoricalBar:
 
 
 @dataclass(frozen=True)
-class NewsItem:
+class RawNewsItem:
     """A single headline, prior to embedding/clustering (Phase 4 territory)."""
 
     source: str
@@ -63,31 +52,12 @@ class NewsItem:
 
 
 @dataclass(frozen=True)
-class CorporateAction:
-    """A split/bonus/dividend event, used to exclude false "crash" diffs."""
+class FundNav:
+    """A single day's NAV (and subscription status) for a mutual fund, from AMFI."""
 
-    action_type: str  # e.g. "split", "bonus", "dividend"
-    ex_date: date
-    ratio: float | None  # e.g. 2.0 for a 1:2 split; None for cash dividends
-    amount: float | None  # cash amount for dividends; None otherwise
-
-
-@dataclass(frozen=True)
-class MFNav:
-    """A single day's NAV for a mutual fund scheme, from AMFI NAVAll."""
-
-    scheme_code: str
+    instrument_id: str
     nav: float
     as_of: date
-
-
-@dataclass(frozen=True)
-class SubscriptionWindowStatus:
-    """RBI LRS-driven overseas-fund subscription pause status for a scheme."""
-
-    scheme_code: str
-    is_open: bool
-    changed_at: datetime | None
 
 
 class MarketDataProvider(ABC):
@@ -100,29 +70,19 @@ class MarketDataProvider(ABC):
     """
 
     @abstractmethod
-    def get_quote(self, symbol: str, exchange: Exchange) -> Quote:
+    def get_quote(self, instrument_id: str) -> Quote:
         """Current price and ratios for one instrument."""
 
     @abstractmethod
     def get_historical(
-        self, symbol: str, exchange: Exchange, period_days: int
-    ) -> list[HistoricalBar]:
-        """Daily OHLCV bars for the trailing `period_days`."""
+        self, instrument_id: str, start: date, end: date
+    ) -> list[PricePoint]:
+        """Daily OHLCV bars for the instrument between `start` and `end`."""
 
     @abstractmethod
-    def get_news(self, symbol: str, sector: str | None = None) -> list[NewsItem]:
-        """Recent headlines for the instrument, and optionally its sector."""
+    def get_news(self, instrument_id: str) -> list[RawNewsItem]:
+        """Recent headlines for the instrument."""
 
     @abstractmethod
-    def get_corporate_actions(
-        self, symbol: str, exchange: Exchange
-    ) -> list[CorporateAction]:
-        """Known splits/bonuses/dividends for the instrument."""
-
-    @abstractmethod
-    def get_mf_nav(self, scheme_code: str) -> MFNav:
-        """Latest published NAV for a mutual fund scheme."""
-
-    @abstractmethod
-    def get_subscription_window(self, scheme_code: str) -> SubscriptionWindowStatus:
-        """Current overseas-subscription window status for a scheme."""
+    def get_fund_nav(self, instrument_id: str) -> FundNav:
+        """Latest published NAV for a mutual fund (mutual funds only)."""
