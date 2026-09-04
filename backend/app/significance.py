@@ -1,8 +1,14 @@
 """Rule-based significance scoring — no ML model, no LLM call, ever (see
-docs/SOURCE_OF_TRUTH.md, "Significance scoring"). Each of the four
+docs/SOURCE_OF_TRUTH.md, "Significance scoring"). Each of the three
 categories from docs/plan.md §3 is an independent, pure function of numeric
-inputs; score_significance() runs all four and returns one SignificanceScore
+inputs; score_significance() runs all three and returns one SignificanceScore
 per category that actually fired.
+
+A fourth category, relative/peer context (comparing an instrument's move to
+its sector index), was deliberately dropped rather than built out: it would
+have needed a sector-name -> tradeable-index-ticker mapping that doesn't
+exist anywhere else in this project, for a comparison this project isn't
+committing to (see docs/plan.md §3 history — removed by request).
 """
 
 import statistics
@@ -22,11 +28,6 @@ MIN_DAILY_RETURNS_FOR_STATISTICAL = 20
 SMA_SHORT_WINDOW = 20
 SMA_LONG_WINDOW = 50
 FIFTY_TWO_WEEK_TRADING_DAYS = 252
-
-# A same-day divergence from the sector's move of 1.5 percentage points or
-# more is treated as "actually outperforming/underperforming", per the
-# down-2%-vs-sector-down-3.5% example in docs/plan.md §3.
-RELATIVE_DIVERGENCE_THRESHOLD = 0.015
 
 
 def _corporate_action_between(
@@ -151,34 +152,6 @@ def _check_threshold_crossing(
     return None
 
 
-def _check_relative_context(
-    diff: Diff, adjusted_return: float, sector_historical: list[PricePoint] | None
-) -> SignificanceScore | None:
-    """Compares the instrument's (adjusted) same-day return to its sector's.
-
-    Unlike instrument_historical, sector_historical must include today as
-    its last close — there's no separate "sector diff" object to carry
-    today's sector price the way diff.after_price carries the instrument's,
-    so today's sector return is computed from the last two closes here.
-
-    Resolving *which* sector index to pass in is not this module's job —
-    that's a caller-side lookup from Instrument.sector, wired up wherever
-    this is actually invoked (see Phase 2 summary, open question)."""
-    if not sector_historical or len(sector_historical) < 2:
-        return None
-    sector_closes = [bar.close for bar in sector_historical]
-    sector_return = (sector_closes[-1] - sector_closes[-2]) / sector_closes[-2]
-    divergence = adjusted_return - sector_return
-    if abs(divergence) < RELATIVE_DIVERGENCE_THRESHOLD:
-        return None
-    return SignificanceScore(
-        diff_id=diff.id,
-        category="relative",
-        score=divergence,
-        detail=f"instrument {adjusted_return:+.2%} vs sector {sector_return:+.2%}",
-    )
-
-
 def _check_discrete_event(
     diff: Diff, snapshot_after: Snapshot, action: dict | None
 ) -> SignificanceScore | None:
@@ -205,16 +178,15 @@ def score_significance(
     instrument_historical: list[PricePoint],
     snapshot_before: Snapshot,
     snapshot_after: Snapshot,
-    sector_historical: list[PricePoint] | None = None,
 ) -> list[SignificanceScore]:
-    """Run all four significance categories from docs/plan.md §3 against one
+    """Run all three significance categories from docs/plan.md §3 against one
     Diff. Returns a SignificanceScore per category that fired — an empty
     list means nothing about this diff crossed any threshold.
 
-    `instrument_historical` and `sector_historical` must both cover strictly
-    the days *before* snapshot_after (they must not include the day this
-    diff represents) — the diff itself (diff.after_price / adjusted_return)
-    is the only "today" data point.
+    `instrument_historical` must cover strictly the days *before*
+    snapshot_after (it must not include the day this diff represents) — the
+    diff itself (diff.after_price / adjusted_return) is the only "today"
+    data point.
     """
     action = _corporate_action_between(
         instrument, snapshot_before.captured_at.date(), snapshot_after.captured_at.date()
@@ -224,7 +196,6 @@ def score_significance(
     candidates = [
         _check_statistical_deviation(diff, instrument_historical, adjusted_return),
         _check_threshold_crossing(diff, instrument_historical, action),
-        _check_relative_context(diff, adjusted_return, sector_historical),
         _check_discrete_event(diff, snapshot_after, action),
     ]
     return [score for score in candidates if score is not None]

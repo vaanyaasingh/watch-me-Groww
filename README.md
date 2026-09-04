@@ -68,9 +68,9 @@ Visit `http://localhost:3000` for a placeholder page.
   models for every entity in `docs/plan.md` §5 (`app/models.py`) with
   Alembic migrations (`alembic/`); the pure diff engine
   (`app/diff_engine.py`); and rule-based significance scoring
-  (`app/significance.py`) — z-scores, threshold crossings, sector-relative
-  divergence, and discrete events, with no ML model and no LLM call
-  anywhere in the decision of what's "significant"; and the batch
+  (`app/significance.py`) — z-scores, threshold crossings, and discrete
+  events, with no ML model and no LLM call anywhere in the decision of
+  what's "significant"; and the batch
   ingestion job (`app/ingestion/run_ingestion.py`) — one MarketDataProvider
   call per distinct watched instrument per run (not per user), a per-user
   Diff against each user's own last snapshot, and NSE trading-hours/holiday

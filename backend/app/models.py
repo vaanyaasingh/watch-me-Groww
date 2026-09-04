@@ -108,7 +108,7 @@ class SignificanceScore(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     diff_id: Mapped[int] = mapped_column(ForeignKey("diff.id"), index=True)
     score: Mapped[float] = mapped_column(Float)
-    category: Mapped[str] = mapped_column(String)  # "statistical" | "threshold" | "relative" | "event"
+    category: Mapped[str] = mapped_column(String)  # "statistical" | "threshold" | "event"
     # Not in docs/plan.md §5's field list — added because "auditable" (see
     # docs/SOURCE_OF_TRUTH.md) needs a human-readable reason a category
     # fired, not just a bare number; flagged as a deliberate addition in the

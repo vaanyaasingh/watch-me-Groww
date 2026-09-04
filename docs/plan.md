@@ -16,7 +16,7 @@ Groww's existing watchlist shows every instrument with equal weight and no diffi
 
 1. **"Since You Last Checked" Digest** — snapshot on every view (price, ratios, headlines, timestamp). On return, diff against the last snapshot and produce a one-line narrative plus underlying deltas. This is the core primitive; everything else consumes it.
 2. **News-Augmented Digest (RAG)** — retrieve news published between last-checked and now for the instrument and its sector, deduplicate and cluster near-identical stories, rank by semantic relevance and by correlation with flagged price-significant days, take the top 5, and feed only those into the summary generation step. Retrieval-then-generation, never free generation.
-3. **Significance-Ranked Attention Feed** — score every diff (statistical/threshold/relative/event), surface only the top few per session, collapse the rest. Bigger watchlist means smarter triage, not a longer scroll.
+3. **Significance-Ranked Attention Feed** — score every diff (statistical/threshold/event), surface only the top few per session, collapse the rest. Bigger watchlist means smarter triage, not a longer scroll.
 4. **Adaptive Alerts** — volatility-normalized triggers (not flat percentages), reusing the significance score rather than a separate alerting system.
 5. **Data Integrity & Corporate Action Layer** — staleness indicators (market-closed vs feed-stuck), NSE/BSE reconciliation, corporate-action adjustment so splits/bonuses/dividends never register as false "crashes."
 6. **MF/ETF Subscription-Window Tracker** — tracks RBI LRS-driven overseas fund subscription pauses via AMFI data, notifies before/as a window closes.
@@ -33,7 +33,6 @@ No flat percentage thresholds. A change is meaningful if it is:
 |---|---|
 | Statistical price deviation | Move large relative to the instrument's own rolling volatility (z-score / ATR-normalized) |
 | Threshold / structural crossing | 52-week high/low, moving average crossover, circuit-limit proximity |
-| Relative / peer context | Down 2% while sector index is down 3.5% (actually outperforming) |
 | Discrete event | Earnings, corporate action, rating change, MF subscription window change |
 
 Corporate-action price discontinuities are detected and excluded by design, never reported as meaningful change.

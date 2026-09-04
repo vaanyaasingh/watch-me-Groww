@@ -12,7 +12,6 @@ from app.models import Diff, Instrument, Snapshot
 from app.providers.base import PricePoint
 from app.significance import (
     _check_discrete_event,
-    _check_relative_context,
     _check_statistical_deviation,
     _check_threshold_crossing,
     score_significance,
@@ -143,39 +142,7 @@ def test_threshold_skipped_when_corporate_action_present():
     assert result is None
 
 
-# --- Category 3: relative/peer context ---
-
-
-def test_relative_context_flags_divergence_from_sector():
-    # Instrument down 2%, sector down 3.5% over the same day — outperforming
-    # its sector by 1.5 points, the exact example in docs/plan.md §3.
-    diff = _diff(before_price=100.0, after_price=98.0)
-    sector_historical = _bars([100.0, 96.5])  # includes "today" as last close, see docstring
-
-    result = _check_relative_context(diff, adjusted_return=diff.price_delta_pct, sector_historical=sector_historical)
-
-    assert result is not None
-    assert result.category == "relative"
-
-
-def test_relative_context_ignores_small_divergence():
-    diff = _diff(before_price=100.0, after_price=99.0)  # -1%
-    sector_historical = _bars([100.0, 99.2])  # sector -0.8%, only 0.2pt divergence
-
-    result = _check_relative_context(diff, adjusted_return=diff.price_delta_pct, sector_historical=sector_historical)
-
-    assert result is None
-
-
-def test_relative_context_skips_without_sector_data():
-    diff = _diff(before_price=100.0, after_price=90.0)
-
-    result = _check_relative_context(diff, adjusted_return=diff.price_delta_pct, sector_historical=None)
-
-    assert result is None
-
-
-# --- Category 4: discrete event ---
+# --- Category 3: discrete event ---
 
 
 def test_discrete_event_flags_rating_change():
