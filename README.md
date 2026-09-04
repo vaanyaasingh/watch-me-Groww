@@ -61,6 +61,18 @@ is also supported as a local/non-GCP fallback. Every test in this project
 runs against the mock provider — the Gemini path hasn't been exercised
 against a live key or a live GCP project.
 
+Narrative generation is the same shape again: `NARRATIVE_PROVIDER=template|gemini`
+(default `template`). The template summary is a deterministic, no-network
+sentence built from the diff + significance category alone (no news
+dependency) — not a lesser fallback, it's exactly what a Gemini failure,
+timeout, or an advice-like slip past the prompt should fall back to "so a
+live demo never breaks." Every test runs against it (`watch-me-groww`'s GCP
+billing account is currently closed pending a bank issue, so the live
+Gemini path is implemented but still unverified — same status as
+embeddings). If Gemini output ever contains buy/sell/hold/invest-style
+language, it's discarded in favor of the template — a hard backstop on top
+of the prompt, not the only line of defense (see `app/narrative.py`).
+
 **Frontend** (Next.js App Router, TypeScript, Tailwind):
 
 ```bash
@@ -96,18 +108,22 @@ Visit `http://localhost:3000` for a placeholder page.
   cosine similarity, and ranks by semantic relevance plus correlation with
   a day the significance engine already flagged — reusing that table
   rather than inventing a second importance signal. Run ingestion locally
-  with `python -m app.ingestion.run_ingestion`.
+  with `python -m app.ingestion.run_ingestion`. `app/narrative.py`'s
+  `generate_digest(diff, significance, news_items)` turns an already-scored
+  Diff plus its retrieved news into the 2-3 sentence summary Feature 1
+  shows, at view-time rather than ingestion-time (nothing calls it yet —
+  that's the route handler in Phase 6).
 - `frontend/` — Next.js app (watchlist UI, digest views, alerts).
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Through Phase 4: data model, diff engine, rule-based significance scoring,
-batch ingestion (price + news), and news retrieval are in place and
-unit-tested (including a corporate-action exclusion case, an end-to-end
-ingestion run against MockProvider with zero real API calls, and a
-retrieval test with a hand-crafted fixture proving dedup, significance-
-correlated ranking, and the time-window/instrument filters all work
-together). No route handlers, narrative generation, or UI logic yet — see
-`docs/plan.md` §7 for the phase sequence.
+Through Phase 5: data model, diff engine, rule-based significance scoring,
+batch ingestion (price + news), news retrieval, and narrative generation
+are in place and unit-tested (including a corporate-action exclusion case,
+an end-to-end ingestion run against MockProvider with zero real API calls,
+a retrieval test proving dedup/significance-correlated ranking/window
+filters, and a narrative-generation suite proving the advice-language
+backstop actually catches "buy/sell/hold/invest" phrasings). No route
+handlers or UI logic yet — see `docs/plan.md` §7 for the phase sequence.
