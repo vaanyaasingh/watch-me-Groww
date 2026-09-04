@@ -18,35 +18,38 @@ NAV) is read through one interface, [`MarketDataProvider`](backend/app/providers
 instead of route handlers or jobs calling yfinance/AMFI/Google News
 directly. Two things fall out of that:
 
-1. **Swappable sources.** Phase 1 adds real providers (yfinance, AMFI) and a
-   **mock provider** behind the same interface. The mock provider returns
-   deterministic fixture data, so anyone running or judging this project can
-   see every feature working end-to-end without live API keys or network
-   access — set one config value to switch between mock and real data.
+1. **Swappable sources.** Four implementations share the interface:
+   `MockProvider` (reads `backend/fixtures/sample_market_data.json`, zero
+   network/credentials), `YFinanceProvider` (equities/ETFs), `AMFIProvider`
+   (mutual fund NAV), and `LiveMarketDataProvider` (composes the previous
+   two, routed by instrument_id shape — a numeric id is an AMFI scheme code,
+   everything else is a yfinance ticker). Pick one with a single env var:
+   `MARKET_DATA_PROVIDER=mock|live|yfinance|amfi` (default `mock`), read in
+   exactly one place (`app/providers/config.py`). The mock provider is the
+   default specifically so anyone running or judging this project sees
+   every feature working end-to-end without live API keys or network
+   access.
 2. **A single seam for external I/O.** If a data source changes or breaks,
    only its provider implementation changes; the diff engine, significance
    scoring, and UI never know the difference.
 
-This phase only defines the interface (`get_quote`, `get_historical`,
-`get_news`, `get_fund_nav`) and its return types — no implementations yet.
-
 ## Running locally
-
-Both are scaffolds for now — no business logic, database models, or routes
-beyond a health check exist yet.
 
 **Backend** (Python 3.11+):
 
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Visit `http://localhost:8000/health`. Alembic is wired up for migrations
-(`alembic upgrade head`) but there are no models/revisions yet — that lands
-in Phase 2.
+Visit `http://localhost:8000/health`. Run the test suite with
+`python -m pytest tests/` — provider tests that need real network access
+(live yfinance/AMFI calls) skip themselves automatically when none is
+available; every other test, including the full significance-scoring suite,
+runs offline.
 
 **Frontend** (Next.js App Router, TypeScript, Tailwind):
 
@@ -60,15 +63,22 @@ Visit `http://localhost:3000` for a placeholder page.
 
 ## Layout
 
-- `backend/` — FastAPI service (`app/main.py`), SQLAlchemy + Alembic
-  scaffold (`app/db.py`, `alembic/`), and the `MarketDataProvider` interface
-  (`app/providers/base.py`).
+- `backend/` — FastAPI service (`app/main.py`); the `MarketDataProvider`
+  interface and its four implementations (`app/providers/`); SQLAlchemy
+  models for every entity in `docs/plan.md` §5 (`app/models.py`) with
+  Alembic migrations (`alembic/`); the pure diff engine
+  (`app/diff_engine.py`); and rule-based significance scoring
+  (`app/significance.py`) — z-scores, threshold crossings, sector-relative
+  divergence, and discrete events, with no ML model and no LLM call
+  anywhere in the decision of what's "significant".
 - `frontend/` — Next.js app (watchlist UI, digest views, alerts).
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Phase 0: monorepo scaffold + `MarketDataProvider` interface. No concrete
-providers, data model, or UI logic yet — see `docs/plan.md` §7 for the phase
-sequence.
+Through Phase 2: data model, diff engine, and rule-based significance
+scoring are in place and unit-tested (including a corporate-action
+exclusion case — a 40%+ price drop from a recorded bonus issue is never
+flagged as a statistical deviation). No route handlers, ingestion job, news
+pipeline, or UI logic yet — see `docs/plan.md` §7 for the phase sequence.

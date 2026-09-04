@@ -10,11 +10,18 @@ import os
 
 from .amfi_provider import AMFIProvider
 from .base import MarketDataProvider
+from .live_provider import LiveMarketDataProvider
 from .mock_provider import MockProvider
 from .yfinance_provider import YFinanceProvider
 
 _PROVIDERS: dict[str, type[MarketDataProvider]] = {
     "mock": MockProvider,
+    # "live" composes YFinanceProvider (equities/ETFs) and AMFIProvider (MF
+    # NAV) behind one interface, routed by instrument_id shape — the
+    # deployment setting a real (non-mock) app should actually use.
+    "live": LiveMarketDataProvider,
+    # "yfinance"/"amfi" stay selectable on their own too, mainly for
+    # debugging one source in isolation without the other in the mix.
     "yfinance": YFinanceProvider,
     "amfi": AMFIProvider,
 }
