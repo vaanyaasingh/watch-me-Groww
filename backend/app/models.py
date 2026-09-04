@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.vector_type import EmbeddingType
 
 
 class User(Base):
@@ -97,9 +98,32 @@ class Diff(Base):
     after_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_delta_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     ratio_deltas: Mapped[dict] = mapped_column(JSON, default=dict)
-    # Top-5 post-ranking news items (docs/plan.md §6) — populated in Phase 4.
+    # Top-5 post-ranking news items (docs/plan.md §6) — Phase 4 builds
+    # get_relevant_news() (app/news_retrieval.py) but doesn't write its
+    # result here yet; that wiring happens in Phase 5 alongside narrative
+    # generation, which is what actually consumes this field.
     news_items: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class NewsItem(Base):
+    __tablename__ = "news_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Nullable: a sector-level story (from the sector RSS query) isn't about
+    # any one instrument — it's tagged by sector_id only. A company-level
+    # story gets both, so it's still found by a sector-wide query.
+    instrument_id: Mapped[str | None] = mapped_column(ForeignKey("instrument.id"), nullable=True, index=True)
+    sector_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String)
+    url: Mapped[str] = mapped_column(String, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String)
+    published_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    embedding: Mapped[list[float] | None] = mapped_column(EmbeddingType, nullable=True)
+    # Assigned by app/news_retrieval.py's clustering step at query time, not
+    # at ingestion — see that module's docstring for why it's left null here.
+    dedupe_cluster_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class SignificanceScore(Base):

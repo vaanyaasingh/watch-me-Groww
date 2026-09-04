@@ -18,16 +18,19 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.diff_engine import compute_diff
+from app.embeddings import EmbeddingProvider, get_embedding_provider
 from app.market_calendar import is_market_open
-from app.models import Instrument, Snapshot, WatchlistItem
-from app.providers.base import MarketDataProvider
+from app.models import Instrument, NewsItem, Snapshot, WatchlistItem
+from app.providers.base import MarketDataProvider, RawNewsItem
 from app.providers.config import get_market_data_provider
 from app.providers.exceptions import ProviderUnavailableError
+from app.providers.google_news_rss import GoogleNewsRSSProvider
 from app.significance import score_significance
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,11 @@ IST = ZoneInfo("Asia/Kolkata")
 # statistical check, with slack for weekends/holidays in the lookback.
 HISTORICAL_LOOKBACK_DAYS = 60
 
+# News ingestion looks back a few days on every run (not just "since last
+# run") so a missed or delayed scheduler tick never permanently loses a
+# story — dedup-by-url makes re-fetching the overlap harmless.
+NEWS_INGESTION_LOOKBACK_DAYS = 3
+
 
 @dataclass
 class IngestionSummary:
@@ -47,6 +55,7 @@ class IngestionSummary:
     snapshots_created: int = 0
     diffs_created: int = 0
     significance_scores_created: int = 0
+    news_items_created: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -121,15 +130,108 @@ def _fetch_historical(provider: MarketDataProvider, instrument: Instrument, now:
     return provider.get_historical(instrument.id, start, end)
 
 
-def run_ingestion(session: Session, provider: MarketDataProvider, now: datetime) -> IngestionSummary:
+def _ingest_news_for_instrument(
+    session: Session,
+    instrument: Instrument,
+    provider: MarketDataProvider,
+    google_news_provider: GoogleNewsRSSProvider,
+    embedding_provider: EmbeddingProvider,
+    now: datetime,
+) -> int:
+    """One news pass per instrument per run — never per user, news isn't
+    per-user data (docs/plan.md §6, "Ingestion"). Dedup is against every
+    NewsItem already in the table, not just this run's batch, so the
+    deliberate lookback overlap (NEWS_INGESTION_LOOKBACK_DAYS) never
+    creates duplicate rows.
+    """
+    if instrument.type == "mf":
+        return 0  # no company-style news source wired for mutual funds in this project
+
+    after = now.date() - timedelta(days=NEWS_INGESTION_LOOKBACK_DAYS)
+    before = now.date()
+
+    # Each tuple carries the (instrument_id, sector_id) tag the resulting
+    # NewsItem row should get — a sector-level story isn't about any one
+    # company, so it's tagged sector-only (see models.py's NewsItem
+    # docstring); a company-level story gets both, so it still surfaces for
+    # a sector-wide query too.
+    tagged: list[tuple[RawNewsItem, str | None, str | None]] = []
+
+    try:
+        tagged += [(raw, instrument.id, instrument.sector) for raw in provider.get_news(instrument.id)]
+    except (ProviderUnavailableError, NotImplementedError) as exc:
+        logger.warning("skipping provider news for %s: %s", instrument.id, exc)
+
+    company_query = instrument.id.split(".")[0]  # strip the exchange suffix for a cleaner search query
+    try:
+        tagged += [
+            (raw, instrument.id, instrument.sector)
+            for raw in google_news_provider.search(company_query, after=after, before=before)
+        ]
+    except requests.RequestException as exc:
+        logger.warning("skipping company RSS search for %s: %s", instrument.id, exc)
+
+    if instrument.sector:
+        try:
+            tagged += [
+                (raw, None, instrument.sector)
+                for raw in google_news_provider.search(instrument.sector, after=after, before=before)
+            ]
+        except requests.RequestException as exc:
+            logger.warning("skipping sector RSS search for %s: %s", instrument.id, exc)
+
+    created = 0
+    seen_urls: set[str] = set()
+    for raw, tagged_instrument_id, tagged_sector_id in tagged:
+        if not raw.url or raw.url in seen_urls:
+            continue
+        seen_urls.add(raw.url)
+        if session.scalar(select(NewsItem).where(NewsItem.url == raw.url)) is not None:
+            continue  # already ingested by an earlier run (or another instrument sharing this sector)
+
+        try:
+            embedding = embedding_provider.embed(f"{raw.title} {raw.snippet}".strip())
+        except Exception as exc:
+            logger.warning("skipping embedding for %s: %s", raw.url, exc)
+            continue
+
+        session.add(
+            NewsItem(
+                instrument_id=tagged_instrument_id,
+                sector_id=tagged_sector_id,
+                source=raw.source,
+                url=raw.url,
+                title=raw.title,
+                published_at=raw.published_at,
+                embedding=embedding,
+                ingested_at=now,
+            )
+        )
+        created += 1
+    return created
+
+
+def run_ingestion(
+    session: Session,
+    provider: MarketDataProvider,
+    now: datetime,
+    google_news_provider: GoogleNewsRSSProvider | None = None,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> IngestionSummary:
     """Core ingestion logic, free of CLI/env concerns so it's directly
     testable with an in-memory session, MockProvider, and a fixed `now`
-    (see tests/test_ingestion.py)."""
+    (see tests/test_ingestion.py). google_news_provider/embedding_provider
+    are injectable the same way for the same reason — tests substitute a
+    no-op/deterministic fake instead of hitting real Google News/Gemini.
+    """
     instruments = _distinct_watched_instruments(session)
 
     if not is_market_open(now):
         _mark_latest_snapshots_market_closed(session, instruments)
         return IngestionSummary(market_open=False, instruments_seen=len(instruments))
+
+    google_news_provider = google_news_provider or GoogleNewsRSSProvider()
+    embedding_provider = embedding_provider or get_embedding_provider()
 
     summary = IngestionSummary(market_open=True, instruments_seen=len(instruments))
 
@@ -173,6 +275,17 @@ def run_ingestion(session: Session, provider: MarketDataProvider, now: datetime)
             scores = score_significance(diff, instrument, historical, prior, new_snapshot)
             session.add_all(scores)
             summary.significance_scores_created += len(scores)
+
+        try:
+            summary.news_items_created += _ingest_news_for_instrument(
+                session, instrument, provider, google_news_provider, embedding_provider, now
+            )
+        except Exception as exc:
+            # News is a bonus signal, not the core digest — a news-pipeline
+            # failure logs and moves on rather than losing this
+            # instrument's price/diff/significance work already staged above.
+            logger.warning("news ingestion failed for %s: %s", instrument.id, exc)
+            summary.errors.append(f"{instrument.id} (news): {exc}")
 
         # Commit per instrument: one instrument's failure (or the next
         # loop iteration's) never rolls back instruments already ingested

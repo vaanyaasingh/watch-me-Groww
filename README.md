@@ -48,8 +48,14 @@ uvicorn app.main:app --reload
 Visit `http://localhost:8000/health`. Run the test suite with
 `python -m pytest tests/` — provider tests that need real network access
 (live yfinance/AMFI calls) skip themselves automatically when none is
-available; every other test, including the full significance-scoring suite,
-runs offline.
+available; every other test, including the full significance-scoring and
+news-retrieval suites, runs offline.
+
+News embeddings work the same way: `EMBEDDING_PROVIDER=mock|gemini`
+(default `mock`) picks a deterministic, hash-derived embedding with zero
+network/credentials, or the real Gemini embeddings endpoint (needs
+`GEMINI_API_KEY`). Every test in this project runs against the mock one —
+the Gemini path hasn't been exercised against a live key.
 
 **Frontend** (Next.js App Router, TypeScript, Tailwind):
 
@@ -76,17 +82,28 @@ Visit `http://localhost:3000` for a placeholder page.
   Diff against each user's own last snapshot, and NSE trading-hours/holiday
   awareness (`app/market_calendar.py` + `app/market_calendar_data/`) so a
   closed market gets marked, not fetched, and never mistaken for a stuck
-  feed. Run it locally with `python -m app.ingestion.run_ingestion`.
+  feed. The same job also ingests news (`app/embeddings.py`,
+  `app/providers/google_news_rss.py`) — yfinance `.news` plus company- and
+  sector-bounded Google News RSS queries, deduplicated by URL and embedded
+  into `NewsItem` (`embedding` stored as a native pgvector column on
+  Postgres, a JSON float list on SQLite — see `app/vector_type.py`).
+  `app/news_retrieval.py`'s `get_relevant_news()` reads that table back:
+  filters by time window and instrument/sector, clusters near-duplicates by
+  cosine similarity, and ranks by semantic relevance plus correlation with
+  a day the significance engine already flagged — reusing that table
+  rather than inventing a second importance signal. Run ingestion locally
+  with `python -m app.ingestion.run_ingestion`.
 - `frontend/` — Next.js app (watchlist UI, digest views, alerts).
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Through Phase 3: data model, diff engine, rule-based significance scoring,
-and a batch ingestion job are in place and unit-tested (including a
-corporate-action exclusion case — a 40%+ price drop from a recorded bonus
-issue is never flagged as a statistical deviation — and an end-to-end
-ingestion run against MockProvider with zero real API calls). No route
-handlers, news pipeline, or UI logic yet — see `docs/plan.md` §7 for the
-phase sequence.
+Through Phase 4: data model, diff engine, rule-based significance scoring,
+batch ingestion (price + news), and news retrieval are in place and
+unit-tested (including a corporate-action exclusion case, an end-to-end
+ingestion run against MockProvider with zero real API calls, and a
+retrieval test with a hand-crafted fixture proving dedup, significance-
+correlated ranking, and the time-window/instrument filters all work
+together). No route handlers, narrative generation, or UI logic yet — see
+`docs/plan.md` §7 for the phase sequence.

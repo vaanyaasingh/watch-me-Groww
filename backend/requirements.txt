@@ -4,3 +4,5 @@ sqlalchemy
 alembic
 yfinance
 requests
+pgvector
+google-genai

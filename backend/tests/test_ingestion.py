@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.db import Base
 from app.ingestion.run_ingestion import run_ingestion
-from app.models import Instrument, Snapshot, User, WatchlistItem
+from app.models import Instrument, NewsItem, Snapshot, User, WatchlistItem
+from app.providers.base import RawNewsItem
 from app.providers.mock_provider import MockProvider
 
 # Thursday, not in backend/app/market_calendar_data/nse_holidays_2026.json —
@@ -21,12 +22,27 @@ MARKET_OPEN_NOW = datetime(2026, 9, 3, 11, 0)
 WEEKEND_NOW = datetime(2026, 9, 5, 11, 0)
 
 
+class _NoOpGoogleNews:
+    """Stands in for GoogleNewsRSSProvider in tests that aren't about the
+    news pipeline — keeps them at zero network calls instead of silently
+    hitting the real Google News RSS endpoint every time run_ingestion()
+    reaches its per-instrument news step."""
+
+    def search(self, query, after, before):
+        return []
+
+
 @pytest.fixture
 def session():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as s:
         yield s
+
+
+@pytest.fixture
+def no_news():
+    return _NoOpGoogleNews()
 
 
 def _seed_watchlist(session, instrument_id: str, instrument_type: str, sector: str | None = None):
@@ -39,10 +55,10 @@ def _seed_watchlist(session, instrument_id: str, instrument_type: str, sector: s
     session.commit()
 
 
-def test_ingestion_creates_snapshot_when_no_prior_exists(session):
+def test_ingestion_creates_snapshot_when_no_prior_exists(session, no_news):
     _seed_watchlist(session, "TCS.NS", "equity")
 
-    summary = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW)
+    summary = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW, google_news_provider=no_news)
 
     assert summary.market_open is True
     assert summary.instruments_seen == 1
@@ -52,7 +68,7 @@ def test_ingestion_creates_snapshot_when_no_prior_exists(session):
     assert session.query(Snapshot).count() == 1
 
 
-def test_ingestion_computes_diff_and_significance_against_prior_snapshot(session):
+def test_ingestion_computes_diff_and_significance_against_prior_snapshot(session, no_news):
     _seed_watchlist(session, "RELIANCE.NS", "equity", sector="Energy")
 
     # Simulate a prior session: seed a snapshot with a price far from the
@@ -71,7 +87,7 @@ def test_ingestion_computes_diff_and_significance_against_prior_snapshot(session
     session.add(prior)
     session.commit()
 
-    summary = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW)
+    summary = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW, google_news_provider=no_news)
 
     assert summary.market_open is True
     assert summary.snapshots_created == 1
@@ -82,7 +98,7 @@ def test_ingestion_computes_diff_and_significance_against_prior_snapshot(session
     assert len(snapshots) == 2  # the seeded prior + the newly ingested one
 
 
-def test_ingestion_calls_provider_once_per_instrument_not_per_user(session, monkeypatch):
+def test_ingestion_calls_provider_once_per_instrument_not_per_user(session, monkeypatch, no_news):
     session.add(Instrument(id="INFY.NS", type="equity"))
     session.add(User(id=1, firebase_uid="u1", email="u1@example.com"))
     session.add(User(id=2, firebase_uid="u2", email="u2@example.com"))
@@ -100,10 +116,47 @@ def test_ingestion_calls_provider_once_per_instrument_not_per_user(session, monk
 
     monkeypatch.setattr(provider, "get_quote", counting_get_quote)
 
-    summary = run_ingestion(session, provider, MARKET_OPEN_NOW)
+    summary = run_ingestion(session, provider, MARKET_OPEN_NOW, google_news_provider=no_news)
 
     assert call_count["quote"] == 1  # one instrument, two watching users — still one provider call
     assert summary.snapshots_created == 2  # but one Snapshot row per (instrument, user)
+
+
+def test_ingestion_creates_news_items_and_dedupes_by_url(session):
+    _seed_watchlist(session, "TCS.NS", "equity", sector="IT")
+
+    same_url_from_two_queries = RawNewsItem(
+        source="Reuters",
+        url="https://example.com/story-1",
+        title="TCS wins big contract",
+        snippet="details",
+        published_at=datetime(2026, 9, 2, 9, 0),
+    )
+
+    class _FakeGoogleNews:
+        def search(self, query, after, before):
+            # Both the company query and the sector query happen to surface
+            # the same wire story — this is the in-batch duplicate the
+            # dedup step must catch, on top of the DB-level one.
+            return [same_url_from_two_queries]
+
+    summary = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW, google_news_provider=_FakeGoogleNews())
+
+    # MockProvider.get_news("TCS.NS") contributes its own fixture item (a
+    # distinct URL), plus the RSS story above — which the company query
+    # AND the sector query both return, so in-batch dedup must collapse
+    # those two into one row.
+    assert summary.news_items_created == 2
+    items = session.query(NewsItem).all()
+    assert len(items) == 2
+    urls = {item.url for item in items}
+    assert "https://example.com/story-1" in urls
+    assert all(item.embedding is not None for item in items)  # MockEmbeddingProvider ran (default, no EMBEDDING_PROVIDER set)
+
+    # A second run with the same stories must not create duplicate rows.
+    summary2 = run_ingestion(session, MockProvider(), MARKET_OPEN_NOW, google_news_provider=_FakeGoogleNews())
+    assert summary2.news_items_created == 0
+    assert session.query(NewsItem).count() == 2
 
 
 def test_ingestion_marks_market_closed_instead_of_fetching(session, monkeypatch):
