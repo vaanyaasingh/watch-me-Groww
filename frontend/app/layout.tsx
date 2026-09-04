@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { NavBar } from "@/components/NavBar";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Smart Market Watchlist",
@@ -13,7 +15,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{ minHeight: "100vh" }}>
+        <Providers>
+          <NavBar />
+          <main className="px-3 py-6 sm:px-6" style={{ maxWidth: 960, margin: "0 auto" }}>
+            {children}
+          </main>
+        </Providers>
+      </body>
     </html>
   );
 }

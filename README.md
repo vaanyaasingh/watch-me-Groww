@@ -81,7 +81,14 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000` for a placeholder page.
+Visit `http://localhost:3000`. Start the backend first (above) — the
+frontend talks to it at `http://localhost:8000` by default
+(`NEXT_PUBLIC_API_BASE_URL` to override). On backend startup, `app/seed.py`
+seeds the instrument catalog, a single demo user, and two placeholder
+subscription-window rows, so the UI has something to show immediately —
+add an instrument to the watchlist, then run
+`python -m app.ingestion.run_ingestion` (more than once, so there's a prior
+snapshot to diff against) to see the attention feed and digest populate.
 
 ## Layout
 
@@ -112,18 +119,35 @@ Visit `http://localhost:3000` for a placeholder page.
   `generate_digest(diff, significance, news_items)` turns an already-scored
   Diff plus its retrieved news into the 2-3 sentence summary Feature 1
   shows, at view-time rather than ingestion-time (nothing calls it yet —
-  that's the route handler in Phase 6).
-- `frontend/` — Next.js app (watchlist UI, digest views, alerts).
+  that's what Phase 6's route handlers actually call now); and
+  `app/api.py` — the REST layer the frontend talks to (watchlist, the
+  significance-ranked attention feed, per-instrument digest, alerts,
+  subscription windows), plus `app/seed.py` seeding the instrument catalog
+  and a single demo user on startup (no auth system exists yet).
+- `frontend/` — Next.js App Router UI for all five screens (attention
+  feed, per-instrument digest, watchlist management, alert setup,
+  subscription tracker), styled from a Groww design system exported via
+  Claude Design (`components/ds/` — Avatar, Badge, Button, Chip, Switch —
+  ported from that export's component source; `app/design-tokens.css`
+  copied from its color/spacing/typography token files). The export's
+  `InstrumentDigest` screen included literal "Buy"/"Sell" action buttons
+  (`--accent-buy`/`--accent-sell` tokens) — dropped per
+  `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell language,
+  replaced with "Add/remove watchlist" and "Set alert" in the same button
+  slots, styled with the same `Button` component minus those two variants.
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Through Phase 5: data model, diff engine, rule-based significance scoring,
-batch ingestion (price + news), news retrieval, and narrative generation
-are in place and unit-tested (including a corporate-action exclusion case,
-an end-to-end ingestion run against MockProvider with zero real API calls,
-a retrieval test proving dedup/significance-correlated ranking/window
-filters, and a narrative-generation suite proving the advice-language
-backstop actually catches "buy/sell/hold/invest" phrasings). No route
-handlers or UI logic yet — see `docs/plan.md` §7 for the phase sequence.
+Through Phase 6: the full stack is wired end-to-end — data model, diff
+engine, rule-based significance scoring, batch ingestion (price + news),
+news retrieval, narrative generation, a REST API, and a styled frontend for
+all five screens, responsive down to mobile. Backend logic remains
+unit-tested (corporate-action exclusion, an end-to-end ingestion run
+against MockProvider with zero real API calls, retrieval dedup/ranking,
+narrative advice-language backstop); the frontend has been verified by
+running both dev servers and checking each screen in the browser at both
+desktop and mobile widths, not by an automated test suite. No auth system
+yet (a single seeded demo user stands in for it) — see `docs/plan.md` §7
+for the phase sequence.
