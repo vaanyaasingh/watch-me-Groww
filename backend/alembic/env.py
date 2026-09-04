@@ -8,13 +8,13 @@ from sqlalchemy import engine_from_config, pool
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db import Base  # noqa: E402  (import after sys.path fix, matches alembic's own convention)
+from app import models  # noqa: E402,F401  (registers all tables on Base.metadata for autogenerate)
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Phase 2 imports its models here so Alembic can autogenerate against them.
 target_metadata = Base.metadata
 
 config.set_main_option(

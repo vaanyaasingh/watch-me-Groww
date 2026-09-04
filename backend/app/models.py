@@ -1,0 +1,132 @@
+"""SQLAlchemy models — entity names match docs/plan.md §5 exactly.
+
+Diff and SignificanceScore are persisted (not computed-on-read): the
+attention feed (Feature 3) needs to show what fired in past sessions, not
+just the current one, and a persisted row is trivial to stop reading later
+if it turns out to be unnecessary — reconstructing lost history is not.
+"""
+
+from datetime import date, datetime
+
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db import Base
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Firebase Authentication is the identity provider (docs/plan.md §4) —
+    # this table just links a Firebase identity to app-owned rows.
+    firebase_uid: Mapped[str] = mapped_column(String, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Instrument(Base):
+    __tablename__ = "instrument"
+
+    # The instrument_id is the natural key MarketDataProvider already uses
+    # (a yfinance-style ticker like "RELIANCE.NS", or an AMFI scheme code
+    # like "120503") — reusing it as the primary key avoids a second id
+    # that every provider call would otherwise need translating to/from.
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    type: Mapped[str] = mapped_column(String)  # "equity" | "etf" | "mf"
+    exchange: Mapped[str | None] = mapped_column(String, nullable=True)  # "NSE" | "BSE" | None for MF
+    sector: Mapped[str | None] = mapped_column(String, nullable=True)
+    # List of {"action_type", "ex_date", "ratio", "amount"} dicts (see
+    # backend/fixtures/sample_market_data.json for the shape) — read by
+    # app/significance.py to exclude corporate-action discontinuities.
+    corporate_action_history: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+
+class WatchlistItem(Base):
+    __tablename__ = "watchlist_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Snapshot(Base):
+    __tablename__ = "snapshot"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    price: Mapped[float] = mapped_column(Float)
+    volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ratios: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    top_headlines: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Discrete-event fields (docs/plan.md §3, category 4): wired now so the
+    # significance engine has somewhere to read them from, even though no
+    # provider populates real earnings dates or rating changes yet.
+    corporate_action: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    earnings_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    rating_change: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class Diff(Base):
+    __tablename__ = "diff"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True)
+    snapshot_before_id: Mapped[int] = mapped_column(ForeignKey("snapshot.id"))
+    snapshot_after_id: Mapped[int] = mapped_column(ForeignKey("snapshot.id"))
+    before_price: Mapped[float] = mapped_column(Float)
+    after_price: Mapped[float] = mapped_column(Float)
+    price_delta_pct: Mapped[float] = mapped_column(Float)
+    before_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    after_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    volume_delta_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ratio_deltas: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Top-5 post-ranking news items (docs/plan.md §6) — populated in Phase 4.
+    news_items: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SignificanceScore(Base):
+    __tablename__ = "significance_score"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    diff_id: Mapped[int] = mapped_column(ForeignKey("diff.id"), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    category: Mapped[str] = mapped_column(String)  # "statistical" | "threshold" | "relative" | "event"
+    # Not in docs/plan.md §5's field list — added because "auditable" (see
+    # docs/SOURCE_OF_TRUTH.md) needs a human-readable reason a category
+    # fired, not just a bare number; flagged as a deliberate addition in the
+    # Phase 2 summary rather than left silent.
+    detail: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Alert(Base):
+    __tablename__ = "alert"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True)
+    condition: Mapped[dict] = mapped_column(JSON)
+    adaptive_threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="active")
+
+
+class SubscriptionWindow(Base):
+    __tablename__ = "subscription_window"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True, unique=True)
+    status: Mapped[str] = mapped_column(String)
+    last_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
