@@ -76,6 +76,11 @@ class Snapshot(Base):
     corporate_action: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     earnings_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     rating_change: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "live" | "market_closed" — set by the Phase 3 ingestion job so a
+    # snapshot that's simply old because NSE is shut isn't later confused
+    # with a broken/stuck feed (that distinction is Feature 5's staleness
+    # indicator, Phase 7; this column is the data it will read).
+    status: Mapped[str] = mapped_column(String, default="live")
 
 
 class Diff(Base):

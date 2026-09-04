@@ -39,7 +39,10 @@ requires_network = pytest.mark.skipif(
 
 @pytest.fixture
 def mock_provider() -> MockProvider:
-    return MockProvider()
+    # Pin `today` so MockProvider's date-shift (see mock_provider.py) is a
+    # no-op and every assertion below can keep using the fixture's original
+    # Jan 2024 dates verbatim.
+    return MockProvider(today=date(2024, 1, 30))
 
 
 def test_mock_get_quote(mock_provider):

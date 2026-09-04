@@ -70,15 +70,23 @@ Visit `http://localhost:3000` for a placeholder page.
   (`app/diff_engine.py`); and rule-based significance scoring
   (`app/significance.py`) — z-scores, threshold crossings, sector-relative
   divergence, and discrete events, with no ML model and no LLM call
-  anywhere in the decision of what's "significant".
+  anywhere in the decision of what's "significant"; and the batch
+  ingestion job (`app/ingestion/run_ingestion.py`) — one MarketDataProvider
+  call per distinct watched instrument per run (not per user), a per-user
+  Diff against each user's own last snapshot, and NSE trading-hours/holiday
+  awareness (`app/market_calendar.py` + `app/market_calendar_data/`) so a
+  closed market gets marked, not fetched, and never mistaken for a stuck
+  feed. Run it locally with `python -m app.ingestion.run_ingestion`.
 - `frontend/` — Next.js app (watchlist UI, digest views, alerts).
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Through Phase 2: data model, diff engine, and rule-based significance
-scoring are in place and unit-tested (including a corporate-action
-exclusion case — a 40%+ price drop from a recorded bonus issue is never
-flagged as a statistical deviation). No route handlers, ingestion job, news
-pipeline, or UI logic yet — see `docs/plan.md` §7 for the phase sequence.
+Through Phase 3: data model, diff engine, rule-based significance scoring,
+and a batch ingestion job are in place and unit-tested (including a
+corporate-action exclusion case — a 40%+ price drop from a recorded bonus
+issue is never flagged as a statistical deviation — and an end-to-end
+ingestion run against MockProvider with zero real API calls). No route
+handlers, news pipeline, or UI logic yet — see `docs/plan.md` §7 for the
+phase sequence.
