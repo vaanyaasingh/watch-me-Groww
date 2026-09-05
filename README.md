@@ -137,19 +137,37 @@ snapshot to diff against) to see the attention feed and digest populate.
   `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell language,
   replaced with "Add/remove watchlist" and "Set alert" in the same button
   slots, styled with the same `Button` component minus those two variants.
+  Edge-case hardening (`app/staleness.py`, `app/reconciliation.py`) lives
+  here too: `compute_display_status()` recomputes "live"/"stale"/
+  "market_closed" at request time (a snapshot can go stale from time
+  passing alone, with no new ingestion event, so this can't be a value
+  fixed at ingestion time) and is wired into the watchlist, attention-feed,
+  and digest responses (`last_checked_at` + `status`); `reconcile_exchange_prices()`
+  resolves NSE/BSE disagreement (NSE wins — it carries the large majority
+  of India's equity liquidity — and the discrepancy is always surfaced in
+  the digest response's `exchange_reconciliation` field, never silently
+  dropped) and is wired in whenever both a `.NS` and `.BO` listing exist
+  for the same company.
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
 ## Status
 
-Through Phase 6: the full stack is wired end-to-end — data model, diff
+Through Phase 7: the full stack is wired end-to-end — data model, diff
 engine, rule-based significance scoring, batch ingestion (price + news),
-news retrieval, narrative generation, a REST API, and a styled frontend for
-all five screens, responsive down to mobile. Backend logic remains
-unit-tested (corporate-action exclusion, an end-to-end ingestion run
-against MockProvider with zero real API calls, retrieval dedup/ranking,
-narrative advice-language backstop); the frontend has been verified by
-running both dev servers and checking each screen in the browser at both
-desktop and mobile widths, not by an automated test suite. No auth system
-yet (a single seeded demo user stands in for it) — see `docs/plan.md` §7
-for the phase sequence.
+news retrieval, narrative generation, a REST API, a styled frontend for all
+five screens (responsive down to mobile), and the edge-case pass Feature 5
+(Data Integrity & Corporate Action Layer) actually asks for: market-hours/
+holiday awareness, NSE/BSE reconciliation, stale-vs-closed detection
+(distinct from "market closed", computed at request time), corporate-action
+exclusion generalized across both bonus issues and stock splits, and
+per-source news-pipeline failure isolation (one source failing never
+discards another source's results for the same instrument, nor aborts
+other instruments in the run). 70 backend tests pass, including an
+API-level test (via FastAPI's `TestClient`) proving the NSE/BSE
+disagreement actually reaches the HTTP response, not just the pure
+reconciliation function. The frontend has been verified by running both
+dev servers and checking each screen in the browser at desktop and mobile
+widths, not by an automated test suite. No auth system yet (a single
+seeded demo user stands in for it) — see `docs/plan.md` §7 for the phase
+sequence.

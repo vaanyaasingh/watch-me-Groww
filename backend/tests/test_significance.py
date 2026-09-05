@@ -210,3 +210,36 @@ def test_corporate_action_excludes_statistical_flag_for_bonus_issue():
     assert "statistical" not in categories
     assert "threshold" not in categories  # same reasoning — see _check_threshold_crossing
     assert "event" in categories  # it *is* correctly flagged as a discrete event
+
+
+def test_corporate_action_exclusion_generalizes_to_a_stock_split():
+    """Phase 7 requirement: the exclusion rule must not be special-cased to
+    the bonus-issue shape already covered above. A 1:3 stock split (ratio
+    3.0, a ~67% mechanical drop — a different ratio and a different
+    action_type than the bonus test) must be excluded the same way, proving
+    the rule is generic to any recorded ratio-based corporate action."""
+    closes = _baseline_closes(start_price=900.0)
+    historical = _bars(closes)
+    pre_split_price = closes[-1]
+    post_split_price = round(pre_split_price / 3, 2)  # 1:3 split
+
+    before = _snapshot("TCS.NS", pre_split_price, day=21)
+    after = _snapshot("TCS.NS", post_split_price, day=22)
+    diff = compute_diff(before, after)
+    diff.id = 2
+
+    assert diff.price_delta_pct < -0.6  # sanity check: a ~67% raw drop
+
+    instrument = _instrument(
+        id="TCS.NS",
+        corporate_action_history=[
+            {"action_type": "split", "ex_date": after.captured_at.date().isoformat(), "ratio": 3.0, "amount": None}
+        ],
+    )
+
+    scores = score_significance(diff, instrument, historical, before, after)
+
+    categories = {s.category for s in scores}
+    assert "statistical" not in categories
+    assert "threshold" not in categories
+    assert "event" in categories

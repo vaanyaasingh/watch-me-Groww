@@ -159,6 +159,67 @@ def test_ingestion_creates_news_items_and_dedupes_by_url(session):
     assert session.query(NewsItem).count() == 2
 
 
+def test_news_pipeline_failure_logs_and_continues_other_instruments(session, caplog):
+    """Phase 7 requirement 5: if both yfinance-style news AND Google News
+    RSS fail for one instrument's news step, the run must log and move on
+    — not crash the batch, and not skip price/diff/significance work for
+    that same instrument or for any other instrument in the run."""
+    _seed_watchlist(session, "TCS.NS", "equity", sector="IT")
+    session.add(Instrument(id="RELIANCE.NS", type="equity", sector="Energy"))
+    session.add(WatchlistItem(user_id=1, instrument_id="RELIANCE.NS"))
+    session.commit()
+
+    class _NewsFailingProvider:
+        """Wraps a real MockProvider so price/historical data still work
+        normally — only get_news is broken, and only for TCS.NS, so we can
+        prove the OTHER instrument (RELIANCE.NS) is unaffected."""
+
+        def __init__(self, inner):
+            self._inner = inner
+
+        def get_quote(self, instrument_id):
+            return self._inner.get_quote(instrument_id)
+
+        def get_historical(self, instrument_id, start, end):
+            return self._inner.get_historical(instrument_id, start, end)
+
+        def get_news(self, instrument_id):
+            if instrument_id == "TCS.NS":
+                raise RuntimeError("yfinance news backend is down")
+            return self._inner.get_news(instrument_id)
+
+        def get_fund_nav(self, instrument_id):
+            return self._inner.get_fund_nav(instrument_id)
+
+    class _FailingGoogleNews:
+        def search(self, query, after, before):
+            raise RuntimeError("Google News RSS is unreachable")
+
+    provider = _NewsFailingProvider(MockProvider())
+
+    summary = run_ingestion(session, provider, MARKET_OPEN_NOW, google_news_provider=_FailingGoogleNews())
+
+    # The run itself didn't raise (pytest would have failed above if it had).
+    # Both news sources fail independently and are logged at the point of
+    # failure (see app/ingestion/run_ingestion.py) rather than aborting the
+    # instrument's whole news step, so summary.errors — which only tracks
+    # whole-instrument price/diff failures — stays empty; the log is where
+    # the failure is actually recorded.
+    assert summary.instruments_seen == 2
+    assert summary.instruments_failed == 0  # a news failure isn't a price/diff failure
+    assert any("TCS.NS" in record.message for record in caplog.records)
+    assert any("yfinance news backend is down" in record.message for record in caplog.records)
+    assert any("Google News RSS is unreachable" in record.message for record in caplog.records)
+
+    # Both instruments still got their real work done despite TCS.NS's
+    # news step failing entirely.
+    assert session.query(Snapshot).filter_by(instrument_id="TCS.NS").count() == 1
+    assert session.query(Snapshot).filter_by(instrument_id="RELIANCE.NS").count() == 1
+    # RELIANCE.NS's own news (unaffected by TCS.NS's failure) still ingests normally.
+    assert session.query(NewsItem).filter_by(instrument_id="RELIANCE.NS").count() >= 1
+    assert session.query(NewsItem).filter_by(instrument_id="TCS.NS").count() == 0
+
+
 def test_ingestion_marks_market_closed_instead_of_fetching(session, monkeypatch):
     _seed_watchlist(session, "TCS.NS", "equity")
     session.add(Snapshot(instrument_id="TCS.NS", user_id=1, captured_at=datetime(2026, 9, 4, 15, 0), price=100.0, status="live"))

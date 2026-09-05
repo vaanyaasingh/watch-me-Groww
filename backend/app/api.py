@@ -11,6 +11,7 @@ file's user-resolution, not the frontend's shape or any other module.
 """
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -29,7 +30,9 @@ from app.models import (
 )
 from app.narrative import generate_digest
 from app.news_retrieval import get_relevant_news
+from app.reconciliation import reconcile_exchange_prices
 from app.seed import DEMO_USER_ID
+from app.staleness import compute_display_status
 
 router = APIRouter(prefix="/api")
 
@@ -37,6 +40,27 @@ router = APIRouter(prefix="/api")
 # prominently before the rest collapse — a named constant, not a number
 # buried in the ranking logic below, per the Phase 6 brief.
 ATTENTION_FEED_TOP_N = 5
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def _now_ist() -> datetime:
+    # Naive IST, same convention as app/ingestion/run_ingestion.py and
+    # app/market_calendar.py — see those modules for why.
+    return datetime.now(IST).replace(tzinfo=None)
+
+
+def _exchange_counterpart(instrument_id: str) -> str | None:
+    """"RELIANCE.NS" <-> "RELIANCE.BO" — the other exchange listing of the
+    same company, if this project's Instrument catalog has both. Used by
+    the digest endpoint to surface NSE/BSE disagreement (Phase 7
+    requirement 2); returns None for anything that isn't a dual-suffix
+    equity ticker (ETFs/MFs/scheme codes have no such counterpart)."""
+    if instrument_id.endswith(".NS"):
+        return instrument_id[: -len(".NS")] + ".BO"
+    if instrument_id.endswith(".BO"):
+        return instrument_id[: -len(".BO")] + ".NS"
+    return None
 
 
 def _latest_snapshot(session, instrument_id: str, user_id: int) -> Snapshot | None:
@@ -101,6 +125,7 @@ class AddWatchlistItem(BaseModel):
 def get_watchlist():
     session = SessionLocal()
     try:
+        now = _now_ist()
         stmt = select(WatchlistItem).where(WatchlistItem.user_id == DEMO_USER_ID)
         items = session.scalars(stmt).all()
         result = []
@@ -114,7 +139,13 @@ def get_watchlist():
                     "type": instrument.type if instrument else None,
                     "sector": instrument.sector if instrument else None,
                     "price": snapshot.price if snapshot else None,
-                    "status": snapshot.status if snapshot else None,
+                    # Recomputed at request time (Phase 7 requirement 3:
+                    # stale-vs-closed) rather than returning the raw
+                    # ingestion-time Snapshot.status — a snapshot that was
+                    # "live" when captured can still go stale just from
+                    # time passing, with no new ingestion event.
+                    "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
+                    "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
                     "price_delta_pct": diff.price_delta_pct if diff else None,
                 }
             )
@@ -165,6 +196,7 @@ def remove_from_watchlist(instrument_id: str):
 def get_attention_feed():
     session = SessionLocal()
     try:
+        now = _now_ist()
         watched = session.scalars(
             select(WatchlistItem).where(WatchlistItem.user_id == DEMO_USER_ID)
         ).all()
@@ -176,6 +208,7 @@ def get_attention_feed():
             if diff is None:
                 continue  # nothing to rank yet — no diff has ever been computed for this instrument
             scores = _significance_for_diff(session, diff.id)
+            snapshot = session.get(Snapshot, diff.snapshot_after_id)
             ranked.append(
                 {
                     "instrument_id": item.instrument_id,
@@ -186,6 +219,8 @@ def get_attention_feed():
                     "significance": [
                         {"category": s.category, "detail": s.detail, "score": s.score} for s in scores
                     ],
+                    "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
+                    "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
                 }
             )
 
@@ -205,12 +240,36 @@ def get_attention_feed():
 def get_digest(instrument_id: str):
     session = SessionLocal()
     try:
+        now = _now_ist()
         instrument = session.get(Instrument, instrument_id)
         if instrument is None:
             raise HTTPException(status_code=404, detail=f"Unknown instrument {instrument_id!r}")
 
         snapshot = _latest_snapshot(session, instrument_id, DEMO_USER_ID)
         diff = _latest_diff(session, instrument_id, DEMO_USER_ID)
+
+        # Phase 7 requirement 2: NSE/BSE disagreement. Only equities/ETFs
+        # have a dual-exchange counterpart at all; only surfaced when both
+        # sides actually have a snapshot for this user to compare.
+        exchange_reconciliation = None
+        counterpart_id = _exchange_counterpart(instrument_id)
+        if counterpart_id is not None:
+            counterpart_snapshot = _latest_snapshot(session, counterpart_id, DEMO_USER_ID)
+            if snapshot is not None and counterpart_snapshot is not None:
+                nse_price, bse_price = (
+                    (snapshot.price, counterpart_snapshot.price)
+                    if instrument_id.endswith(".NS")
+                    else (counterpart_snapshot.price, snapshot.price)
+                )
+                result = reconcile_exchange_prices(nse_price, bse_price)
+                exchange_reconciliation = {
+                    "chosen_exchange": result.chosen_exchange,
+                    "chosen_price": result.chosen_price,
+                    "nse_price": result.nse_price,
+                    "bse_price": result.bse_price,
+                    "discrepancy_pct": result.discrepancy_pct,
+                    "disagreement": result.disagreement,
+                }
 
         if diff is None:
             return {
@@ -223,6 +282,9 @@ def get_digest(instrument_id: str):
                 "ratio_deltas": {},
                 "significance": [],
                 "news": [],
+                "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
+                "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
+                "exchange_reconciliation": exchange_reconciliation,
             }
 
         scores = _significance_for_diff(session, diff.id)
@@ -253,6 +315,9 @@ def get_digest(instrument_id: str):
                 {"title": n.title, "source": n.source, "url": n.url, "published_at": n.published_at.isoformat()}
                 for n in news_items
             ],
+            "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
+            "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
+            "exchange_reconciliation": exchange_reconciliation,
         }
     finally:
         session.close()

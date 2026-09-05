@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -157,9 +156,16 @@ def _ingest_news_for_instrument(
     # a sector-wide query too.
     tagged: list[tuple[RawNewsItem, str | None, str | None]] = []
 
+    # Each of the three fetch attempts below is independently guarded
+    # against ANY exception (not just requests.RequestException/
+    # ProviderUnavailableError) — Phase 7 requirement 5 explicitly covers
+    # both yfinance news and Google News RSS failing in the same cycle, and
+    # a narrower except here would let one source's failure abort the
+    # others and discard whatever the earlier ones already fetched, rather
+    # than each source degrading independently.
     try:
         tagged += [(raw, instrument.id, instrument.sector) for raw in provider.get_news(instrument.id)]
-    except (ProviderUnavailableError, NotImplementedError) as exc:
+    except Exception as exc:
         logger.warning("skipping provider news for %s: %s", instrument.id, exc)
 
     company_query = instrument.id.split(".")[0]  # strip the exchange suffix for a cleaner search query
@@ -168,7 +174,7 @@ def _ingest_news_for_instrument(
             (raw, instrument.id, instrument.sector)
             for raw in google_news_provider.search(company_query, after=after, before=before)
         ]
-    except requests.RequestException as exc:
+    except Exception as exc:
         logger.warning("skipping company RSS search for %s: %s", instrument.id, exc)
 
     if instrument.sector:
@@ -177,7 +183,7 @@ def _ingest_news_for_instrument(
                 (raw, None, instrument.sector)
                 for raw in google_news_provider.search(instrument.sector, after=after, before=before)
             ]
-        except requests.RequestException as exc:
+        except Exception as exc:
             logger.warning("skipping sector RSS search for %s: %s", instrument.id, exc)
 
     created = 0
