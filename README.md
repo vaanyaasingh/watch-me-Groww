@@ -57,20 +57,22 @@ network/credentials, or the real Gemini embeddings endpoint. The Gemini
 path uses Vertex AI in production — set `GOOGLE_CLOUD_PROJECT` (the same
 GCP project already backing Cloud Run/Cloud SQL) and it authenticates via
 that service's own credentials, no separate key to manage; `GEMINI_API_KEY`
-is also supported as a local/non-GCP fallback. Every test in this project
-runs against the mock provider — the Gemini path hasn't been exercised
-against a live key or a live GCP project.
+is also supported as a local/non-GCP fallback. Automated tests run against
+the mock provider; the live Vertex AI path has been verified manually
+end-to-end (`GOOGLE_CLOUD_PROJECT=watch-me-groww EMBEDDING_PROVIDER=gemini`)
+through the real `/api/instruments/{id}/digest` endpoint, not just an
+isolated call.
 
 Narrative generation is the same shape again: `NARRATIVE_PROVIDER=template|gemini`
 (default `template`). The template summary is a deterministic, no-network
 sentence built from the diff + significance category alone (no news
 dependency) — not a lesser fallback, it's exactly what a Gemini failure,
 timeout, or an advice-like slip past the prompt should fall back to "so a
-live demo never breaks." Every test runs against it (`watch-me-groww`'s GCP
-billing account is currently closed pending a bank issue, so the live
-Gemini path is implemented but still unverified — same status as
-embeddings). If Gemini output ever contains buy/sell/hold/invest-style
-language, it's discarded in favor of the template — a hard backstop on top
+live demo never breaks." Automated tests run against it; the live Gemini
+path has also been verified manually end-to-end and correctly produces
+factual, advice-free narratives, including the no-news case. If Gemini
+output ever contains buy/sell/hold/invest-style language, it's discarded
+in favor of the template — a hard backstop on top
 of the prompt, not the only line of defense (see `app/narrative.py`).
 
 **Frontend** (Next.js App Router, TypeScript, Tailwind):
