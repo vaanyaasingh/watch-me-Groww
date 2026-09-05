@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Avatar } from "@/components/ds/Avatar";
 import { Button } from "@/components/ds/Button";
+import { glassCard } from "@/components/ds/glass";
 import { Switch } from "@/components/ds/Switch";
 import { useAlerts, useCreateAlert, useDeleteAlert, useWatchlist } from "@/lib/hooks";
 
@@ -35,7 +36,7 @@ function AlertsPageInner() {
   const canSubmit = instrumentId && (smart || targetPrice.trim() !== "");
 
   return (
-    <div style={{ fontFamily: "var(--font-body)", background: "var(--surface-page)", maxWidth: 560, margin: "0 auto" }}>
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 560, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
         {instrumentId && <Avatar label={instrumentId} size="sm" shape="square" />}
         <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>
@@ -46,7 +47,7 @@ function AlertsPageInner() {
       <select
         value={instrumentId}
         onChange={(e) => setInstrumentId(e.target.value)}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)", fontFamily: "var(--font-body)", fontSize: 14, marginBottom: 16, background: "var(--surface-card)" }}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: "var(--radius-md)", fontFamily: "var(--font-body)", fontSize: 14, marginBottom: 16, ...glassCard }}
       >
         <option value="">Select a watched instrument…</option>
         {(watchlist ?? []).map((item) => (
@@ -56,7 +57,7 @@ function AlertsPageInner() {
         ))}
       </select>
 
-      <div style={{ padding: 20, borderRadius: "var(--radius-md)", background: "var(--green-50)", boxShadow: "inset 0 0 0 1px var(--green-500)" }}>
+      <div style={{ padding: 20, borderRadius: "var(--radius-md)", boxShadow: "inset 0 0 0 1px var(--green-500), 0 8px 32px rgba(31,41,55,0.08)", background: "rgba(233,250,242,0.7)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--green-600)", letterSpacing: 0.4 }}>RECOMMENDED</span>
@@ -78,9 +79,9 @@ function AlertsPageInner() {
           <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{manualOpen ? "▲" : "▼"}</span>
         </div>
         {manualOpen && (
-          <div style={{ marginTop: 8, padding: 16, borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ marginTop: 8, padding: 16, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 10, ...glassCard }}>
             <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Alert me when price crosses</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 14px", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 14px", borderRadius: "var(--radius-md)", background: "rgba(255,255,255,0.6)" }}>
               <span style={{ fontWeight: 500, fontSize: 16 }}>₹</span>
               <input
                 value={targetPrice}
@@ -117,7 +118,7 @@ function AlertsPageInner() {
         {alerts && alerts.length === 0 && <p style={{ color: "var(--text-tertiary)", fontSize: 13 }}>No alerts set up yet.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           {(alerts ?? []).map((alert) => (
-            <div key={alert.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)" }}>
+            <div key={alert.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: "var(--radius-md)", ...glassCard }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{alert.instrument_id}</div>
                 <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>

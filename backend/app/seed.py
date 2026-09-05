@@ -23,8 +23,16 @@ _DEMO_SECTORS = {
     "RELIANCE.NS": "Energy",
     "TCS.NS": "IT",
     "INFY.NS": "IT",
+    "WIPRO.NS": "IT",
     "HDFCBANK.NS": "Banking",
     "ICICIBANK.NS": "Banking",
+    "SBIN.NS": "Banking",
+    "BAJFINANCE.NS": "Financial Services",
+    "LT.NS": "Capital Goods",
+    "ITC.NS": "FMCG",
+    "MARUTI.NS": "Auto",
+    "ASIANPAINT.NS": "Consumer Durables",
+    "SUNPHARMA.NS": "Pharma",
 }
 
 # No auth system exists yet (Firebase Auth is still a later phase per

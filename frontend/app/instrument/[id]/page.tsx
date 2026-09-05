@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ds/Avatar";
 import { Button } from "@/components/ds/Button";
 import { Chip } from "@/components/ds/Chip";
+import { Freshness } from "@/components/ds/Freshness";
+import { glassCard } from "@/components/ds/glass";
 import { useAddToWatchlist, useDigest, useRemoveFromWatchlist, useWatchlist } from "@/lib/hooks";
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -30,7 +32,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
   if (isError || !data) return <p style={{ color: "var(--text-negative)" }}>Couldn't load this instrument's digest.</p>;
 
   const positive = (data.price_delta_pct ?? 0) >= 0;
-  const narrativeBg = data.price_delta_pct === null ? "var(--surface-sunken)" : positive ? "var(--green-50)" : "var(--red-50)";
+  const narrativeBg = data.price_delta_pct === null ? "rgba(255,255,255,0.5)" : positive ? "rgba(233,250,242,0.75)" : "rgba(253,234,234,0.75)";
   const narrativeColor = data.price_delta_pct === null ? "var(--text-secondary)" : positive ? "var(--text-positive)" : "var(--text-negative)";
 
   const ratioStats = Object.entries(data.ratio_deltas).map(([key, value]) => (
@@ -38,13 +40,14 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
   ));
 
   return (
-    <div style={{ fontFamily: "var(--font-body)", background: "var(--surface-page)", maxWidth: 960, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 960, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <span onClick={() => router.back()} style={{ cursor: "pointer", fontSize: 18 }}>
           ←
         </span>
         <Avatar label={instrumentId} size="sm" shape="square" />
         <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>{instrumentId}</span>
+        <Freshness status={data.status} lastCheckedAt={data.last_checked_at} />
         <div style={{ flex: 1 }} />
         {data.significance[0] && <Chip>{data.significance[0].category}</Chip>}
       </div>
@@ -63,10 +66,33 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
             </div>
           )}
 
-          <div style={{ marginTop: 14, padding: 16, borderRadius: "var(--radius-md)", background: narrativeBg, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ marginTop: 14, padding: 16, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 4, ...glassCard, background: narrativeBg }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: narrativeColor }}>Since you last checked</span>
             <span style={{ fontSize: 14, color: "var(--ink-2)" }}>{data.narrative}</span>
           </div>
+
+          {data.exchange_reconciliation && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 14,
+                borderRadius: "var(--radius-md)",
+                fontSize: 12,
+                color: "var(--text-secondary)",
+                ...glassCard,
+                ...(data.exchange_reconciliation.disagreement
+                  ? { boxShadow: "inset 0 0 0 1px var(--attention-medium)" }
+                  : {}),
+              }}
+            >
+              <strong style={{ color: "var(--text-primary)" }}>
+                {data.exchange_reconciliation.disagreement ? "NSE/BSE prices disagree" : "NSE/BSE prices agree"}
+              </strong>{" "}
+              — NSE ₹{data.exchange_reconciliation.nse_price.toFixed(2)} vs BSE ₹
+              {data.exchange_reconciliation.bse_price.toFixed(2)} ({(data.exchange_reconciliation.discrepancy_pct * 100).toFixed(2)}% apart).{" "}
+              Using {data.exchange_reconciliation.chosen_exchange} as source of truth (higher liquidity).
+            </div>
+          )}
 
           {(data.price_delta_pct !== null || data.volume_delta_pct !== null || ratioStats.length > 0) && (
             <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 16, marginTop: 20 }}>
@@ -111,7 +137,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ padding: 14, borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)", display: "flex", flexDirection: "column", gap: 5, textDecoration: "none", color: "inherit" }}
+                  style={{ padding: 14, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 5, textDecoration: "none", color: "inherit", ...glassCard }}
                 >
                   <span style={{ fontSize: 14, fontWeight: 500 }}>{item.title}</span>
                   <div style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-tertiary)" }}>

@@ -125,7 +125,19 @@ snapshot to diff against) to see the attention feed and digest populate.
   `app/api.py` — the REST layer the frontend talks to (watchlist, the
   significance-ranked attention feed, per-instrument digest, alerts,
   subscription windows), plus `app/seed.py` seeding the instrument catalog
-  and a single demo user on startup (no auth system exists yet).
+  (13 equities across 8 sectors, 2 ETFs, 2 MFs — `backend/fixtures/sample_market_data.json`)
+  and a single demo user on startup (no auth system exists yet). Edge-case
+  hardening lives here too: `app/staleness.py`'s `compute_display_status()`
+  recomputes "live"/"stale"/"market_closed" at request time (a snapshot can
+  go stale from time passing alone, with no new ingestion event, so this
+  can't be a value fixed at ingestion time) and is wired into the
+  watchlist, attention-feed, and digest responses (`last_checked_at` +
+  `status`); `app/reconciliation.py`'s `reconcile_exchange_prices()`
+  resolves NSE/BSE disagreement (NSE wins — it carries the large majority
+  of India's equity liquidity — and the discrepancy is always surfaced in
+  the digest response's `exchange_reconciliation` field, never silently
+  dropped) and is wired in whenever both a `.NS` and `.BO` listing exist
+  for the same company.
 - `frontend/` — Next.js App Router UI for all five screens (attention
   feed, per-instrument digest, watchlist management, alert setup,
   subscription tracker), styled from a Groww design system exported via
@@ -137,17 +149,13 @@ snapshot to diff against) to see the attention feed and digest populate.
   `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell language,
   replaced with "Add/remove watchlist" and "Set alert" in the same button
   slots, styled with the same `Button` component minus those two variants.
-  Edge-case hardening (`app/staleness.py`, `app/reconciliation.py`) lives
-  here too: `compute_display_status()` recomputes "live"/"stale"/
-  "market_closed" at request time (a snapshot can go stale from time
-  passing alone, with no new ingestion event, so this can't be a value
-  fixed at ingestion time) and is wired into the watchlist, attention-feed,
-  and digest responses (`last_checked_at` + `status`); `reconcile_exchange_prices()`
-  resolves NSE/BSE disagreement (NSE wins — it carries the large majority
-  of India's equity liquidity — and the discrepancy is always surfaced in
-  the digest response's `exchange_reconciliation` field, never silently
-  dropped) and is wired in whenever both a `.NS` and `.BO` listing exist
-  for the same company.
+  A later pass (`components/ds/glass.ts`) layered a frosted-glass visual
+  treatment on top of those same tokens — translucency, blur, depth,
+  inspired by Apple's Liquid Glass but implemented as plain CSS
+  (`backdrop-filter`), since the native SwiftUI/UIKit APIs that name
+  describes don't apply to a web app. `components/ds/Freshness.tsx`
+  surfaces the staleness/last-checked data above in every screen that
+  shows a price.
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 

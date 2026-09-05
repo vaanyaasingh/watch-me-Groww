@@ -31,6 +31,7 @@ export type WatchlistEntry = {
   sector: string | null;
   price: number | null;
   status: string | null;
+  last_checked_at: string | null;
   price_delta_pct: number | null;
 };
 
@@ -40,6 +41,10 @@ export type SignificanceEntry = {
   score: number;
 };
 
+// "live" | "stale" | "market_closed" — computed at request time by
+// backend/app/staleness.py, not the raw ingestion-time DB value.
+export type DisplayStatus = "live" | "stale" | "market_closed" | null;
+
 export type AttentionFeedEntry = {
   instrument_id: string;
   sector: string | null;
@@ -47,6 +52,8 @@ export type AttentionFeedEntry = {
   after_price: number;
   rank_score: number;
   significance: SignificanceEntry[];
+  status: DisplayStatus;
+  last_checked_at: string | null;
 };
 
 export type AttentionFeed = {
@@ -61,6 +68,15 @@ export type NewsEntry = {
   published_at: string;
 };
 
+export type ExchangeReconciliation = {
+  chosen_exchange: string;
+  chosen_price: number;
+  nse_price: number;
+  bse_price: number;
+  discrepancy_pct: number;
+  disagreement: boolean;
+};
+
 export type Digest = {
   instrument_id: string;
   narrative: string;
@@ -70,6 +86,9 @@ export type Digest = {
   ratio_deltas: Record<string, number>;
   significance: SignificanceEntry[];
   news: NewsEntry[];
+  status: DisplayStatus;
+  last_checked_at: string | null;
+  exchange_reconciliation: ExchangeReconciliation | null;
 };
 
 export type Alert = {

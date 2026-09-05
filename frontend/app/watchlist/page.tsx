@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ds/Avatar";
+import { Freshness } from "@/components/ds/Freshness";
+import { glassCard } from "@/components/ds/glass";
 import { useAddToWatchlist, useInstruments, useRemoveFromWatchlist, useWatchlist } from "@/lib/hooks";
 
 export default function WatchlistPage() {
@@ -21,14 +23,14 @@ export default function WatchlistPage() {
           .slice(0, 8);
 
   return (
-    <div style={{ fontFamily: "var(--font-body)", background: "var(--surface-page)", maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 960, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Watchlist</span>
         <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{(watchlist ?? []).length} tracked</span>
       </div>
 
       <div style={{ position: "relative", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: "var(--radius-md)", ...glassCard }}>
           <span style={{ color: "var(--text-tertiary)" }}>⌕</span>
           <input
             value={query}
@@ -46,10 +48,9 @@ export default function WatchlistPage() {
               left: 0,
               right: 0,
               marginTop: 4,
-              background: "var(--surface-card)",
               borderRadius: "var(--radius-md)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
               overflow: "hidden",
+              ...glassCard,
             }}
           >
             {matches.map((i) => (
@@ -72,14 +73,18 @@ export default function WatchlistPage() {
       {isLoading && <p style={{ color: "var(--text-tertiary)" }}>Loading watchlist…</p>}
       {watchlist && watchlist.length === 0 && <p style={{ color: "var(--text-tertiary)", fontSize: 14 }}>Your watchlist is empty — search above to add one.</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-6">
+      <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 10 }}>
         {(watchlist ?? []).map((item) => (
-          <div key={item.instrument_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border-default)" }}>
+          <div
+            key={item.instrument_id}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: "var(--radius-md)", ...glassCard }}
+          >
             <Link href={`/instrument/${encodeURIComponent(item.instrument_id)}`} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
               <Avatar label={item.instrument_id} size="sm" shape="square" />
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, gap: 2 }}>
                 <span style={{ fontSize: 15, fontWeight: 400 }}>{item.instrument_id}</span>
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{item.sector ?? item.type}</span>
+                <Freshness status={item.status} lastCheckedAt={item.last_checked_at} />
               </div>
             </Link>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>

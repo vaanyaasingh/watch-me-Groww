@@ -5,7 +5,14 @@
 @tailwind utilities;
 
 body {
-  background: var(--gray-50);
+  /* Soft, fixed gradient backdrop so translucent (glass) cards actually
+     have something to show through — a flat background would make the
+     blur/translucency pointless. Colors stay in the Groww palette
+     (green/indigo, both already design tokens) rather than the vivid
+     purple/teal of a generic "liquid glass" mockup, so it still reads as
+     this app's own brand, not a template. */
+  background: linear-gradient(160deg, #eafaf3 0%, #f3f2fc 45%, #fdf6ec 100%) fixed;
   font-family: var(--font-body);
   color: var(--text-primary);
+  min-height: 100vh;
 }

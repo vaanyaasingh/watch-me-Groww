@@ -2,6 +2,7 @@
 
 import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
+import { glassCard } from "@/components/ds/glass";
 import type { SubscriptionWindowEntry } from "@/lib/api";
 import { useSubscriptionWindows } from "@/lib/hooks";
 
@@ -16,7 +17,7 @@ function note(entry: SubscriptionWindowEntry): string {
 
 function Row({ entry }: { entry: SubscriptionWindowEntry }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card-border)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, borderRadius: "var(--radius-md)", ...glassCard }}>
       <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: STATUS_DOT[entry.status] ?? "var(--status-closed)" }} />
       <Avatar label={entry.instrument_id} size="md" shape="square" />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -32,7 +33,7 @@ export default function SubscriptionWindowsPage() {
   const { data, isLoading, isError } = useSubscriptionWindows();
 
   return (
-    <div style={{ fontFamily: "var(--font-body)", background: "var(--surface-page)", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 860, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Subscription Window</span>
         <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{(data ?? []).length} tracked</span>
