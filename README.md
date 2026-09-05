@@ -137,25 +137,40 @@ snapshot to diff against) to see the attention feed and digest populate.
   of India's equity liquidity — and the discrepancy is always surfaced in
   the digest response's `exchange_reconciliation` field, never silently
   dropped) and is wired in whenever both a `.NS` and `.BO` listing exist
-  for the same company.
-- `frontend/` — Next.js App Router UI for all five screens (attention
+  for the same company. `app/demo_seed.py`'s `seed_demo_scenario()`
+  (triggered via `POST /api/admin/seed-demo-scenario`) seeds a realistic
+  "last checked N days ago" snapshot for a handful of instruments from
+  their own historical prices, then runs the real diff/significance/news
+  pipeline against "today" — including real Google News RSS retrieval —
+  so the digest/attention-feed views have a genuine story to show without
+  a judge needing to run the ingestion job by hand first.
+- `frontend/` — Next.js App Router UI for all five core screens (attention
   feed, per-instrument digest, watchlist management, alert setup,
-  subscription tracker), styled from a Groww design system exported via
-  Claude Design (`components/ds/` — Avatar, Badge, Button, Chip, Switch —
-  ported from that export's component source; `app/design-tokens.css`
-  copied from its color/spacing/typography token files). The export's
-  `InstrumentDigest` screen included literal "Buy"/"Sell" action buttons
-  (`--accent-buy`/`--accent-sell` tokens) — dropped per
-  `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell language,
-  replaced with "Add/remove watchlist" and "Set alert" in the same button
-  slots, styled with the same `Button` component minus those two variants.
-  A later pass (`components/ds/glass.ts`) layered a frosted-glass visual
-  treatment on top of those same tokens — translucency, blur, depth,
-  inspired by Apple's Liquid Glass but implemented as plain CSS
-  (`backdrop-filter`), since the native SwiftUI/UIKit APIs that name
-  describes don't apply to a web app. `components/ds/Freshness.tsx`
-  surfaces the staleness/last-checked data above in every screen that
-  shows a price.
+  subscription tracker) plus a mock login/profile flow and a NIFTY 50/
+  SENSEX/USD-INR market-overview strip, styled from a Groww design system
+  exported via Claude Design (`components/ds/` — Avatar, Badge, Button,
+  Chip, Switch — ported from that export's component source;
+  `app/design-tokens.css` copied from its color/spacing/typography token
+  files). The export's `InstrumentDigest` screen included literal
+  "Buy"/"Sell" action buttons (`--accent-buy`/`--accent-sell` tokens) —
+  dropped per `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell
+  language, replaced with "Add/remove watchlist" and "Set alert" in the
+  same button slots, styled with the same `Button` component minus those
+  two variants. A later pass (`components/ds/glass.ts`) layered a
+  frosted-glass visual treatment on top of those same tokens —
+  translucency, blur, depth, inspired by Apple's Liquid Glass but
+  implemented as plain CSS (`backdrop-filter`), since the native
+  SwiftUI/UIKit APIs that name describes don't apply to a web app; the
+  glass colors are CSS variables (not hardcoded), so a dark-mode toggle
+  (`components/DarkModeToggle.tsx`, persisted to `localStorage`) flips
+  every surface in the app at once by redefining the same token names
+  under `:root[data-theme="dark"]` rather than branching per component.
+  `components/ds/Freshness.tsx` surfaces the staleness/last-checked data
+  in every screen that shows a price. `/login` and `/profile`
+  (`lib/auth.ts`, `components/AuthGate.tsx`) are a mock sign-in flow, not
+  real auth — the whole backend still runs on one seeded demo user
+  (Firebase Auth is a later `docs/plan.md` §4 item); this just gives the
+  frontend an actual landing/login/profile experience instead of none.
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 

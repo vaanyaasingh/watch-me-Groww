@@ -11,8 +11,9 @@ body {
      (green/indigo, both already design tokens) rather than the vivid
      purple/teal of a generic "liquid glass" mockup, so it still reads as
      this app's own brand, not a template. */
-  background: linear-gradient(160deg, #eafaf3 0%, #f3f2fc 45%, #fdf6ec 100%) fixed;
+  background: var(--page-gradient) fixed;
   font-family: var(--font-body);
   color: var(--text-primary);
   min-height: 100vh;
+  transition: background-color 0.2s ease;
 }

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app.models import Instrument, SubscriptionWindow, User
+from app.models import Instrument, SubscriptionWindow, User, WatchlistItem
 
 FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "sample_market_data.json"
 
@@ -41,6 +41,14 @@ _DEMO_SECTORS = {
 # real auth later only touches app/api.py, not the frontend's shape.
 DEMO_USER_ID = 1
 
+# NIFTY 50, SENSEX, USD/INR — market-overview reference data, not part of
+# any user's personal watchlist. Auto-watched by the demo user below so the
+# regular ingestion job naturally keeps them fresh (reusing that machinery
+# rather than building a separate one); app/api.py's /api/market-overview
+# reads them back, and /api/watchlist filters them out of the personal
+# watchlist view by Instrument.type.
+REFERENCE_INSTRUMENT_IDS = ["^NSEI", "^BSESN", "USDINR=X"]
+
 
 def seed_demo_data(session: Session) -> None:
     if session.get(User, DEMO_USER_ID) is None:
@@ -67,6 +75,13 @@ def seed_demo_data(session: Session) -> None:
         if session.get(Instrument, scheme_code) is not None:
             continue
         session.add(Instrument(id=scheme_code, type="mf"))
+
+    session.flush()  # so the WatchlistItem foreign keys below can resolve the rows just added
+
+    for instrument_id in REFERENCE_INSTRUMENT_IDS:
+        if session.query(WatchlistItem).filter_by(user_id=DEMO_USER_ID, instrument_id=instrument_id).first() is not None:
+            continue
+        session.add(WatchlistItem(user_id=DEMO_USER_ID, instrument_id=instrument_id))
 
     # Placeholder subscription-window status: no provider in this project
     # actually sources RBI LRS subscription-window data yet (Feature 6 has

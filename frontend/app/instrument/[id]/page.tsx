@@ -32,7 +32,10 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
   if (isError || !data) return <p style={{ color: "var(--text-negative)" }}>Couldn't load this instrument's digest.</p>;
 
   const positive = (data.price_delta_pct ?? 0) >= 0;
-  const narrativeBg = data.price_delta_pct === null ? "rgba(255,255,255,0.5)" : positive ? "rgba(233,250,242,0.75)" : "rgba(253,234,234,0.75)";
+  // --green-50/--red-50 already flip in dark mode (design-tokens.css) —
+  // using them (rather than a hardcoded light rgba) keeps this box legible
+  // in both themes instead of a washed-out light-pink-on-dark mismatch.
+  const narrativeBg = data.price_delta_pct === null ? "var(--glass-bg)" : positive ? "var(--green-50)" : "var(--red-50)";
   const narrativeColor = data.price_delta_pct === null ? "var(--text-secondary)" : positive ? "var(--text-positive)" : "var(--text-negative)";
 
   const ratioStats = Object.entries(data.ratio_deltas).map(([key, value]) => (

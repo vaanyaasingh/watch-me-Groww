@@ -68,3 +68,11 @@ export function useDeleteAlert() {
 export function useSubscriptionWindows() {
   return useQuery({ queryKey: ["subscription-windows"], queryFn: api.getSubscriptionWindows });
 }
+
+export function useMarketOverview() {
+  return useQuery({ queryKey: ["market-overview"], queryFn: api.getMarketOverview });
+}
+
+export function useMe() {
+  return useQuery({ queryKey: ["me"], queryFn: api.getMe });
+}

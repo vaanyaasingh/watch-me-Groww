@@ -56,6 +56,12 @@ def _template_summary(diff: Diff, significance: SignificanceScore) -> str:
     """
     pct = abs(diff.price_delta_pct) * 100
     direction = "up" if diff.price_delta_pct >= 0 else "down"
+    if significance.category == "none":
+        # No category fired for this diff — "driven by none" reads as
+        # broken English, so this one case gets its own phrasing rather
+        # than forcing the general "driven by {category}" template to
+        # cover a non-category.
+        return f"{diff.instrument_id} moved {direction} {pct:.1f}% since you last checked, with no significant driver flagged."
     return (
         f"{diff.instrument_id} moved {direction} {pct:.1f}% since you last "
         f"checked, driven by {significance.category}."

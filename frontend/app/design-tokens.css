@@ -54,6 +54,17 @@
   --status-closing: var(--amber-500);
   --status-closed: var(--ink-4);
 
+  /* Glass surface + page-background tokens — not from the design export,
+     added for the frosted-glass visual pass (components/ds/glass.ts).
+     Kept as variables (rather than hardcoded rgba() in glass.ts) so dark
+     mode flips every glass surface at once instead of needing a
+     light/dark variant threaded through every component. */
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-bg-strong: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 8px 32px rgba(31, 41, 55, 0.08);
+  --page-gradient: linear-gradient(160deg, #eafaf3 0%, #f3f2fc 45%, #fdf6ec 100%);
+
   /* spacing.css */
   --space-1: 4px;
   --space-2: 8px;
@@ -97,4 +108,38 @@
   --lh-label: 100%;
   --text-caption: 11px;
   --lh-caption: 100%;
+}
+
+/* Dark mode: a manual toggle sets data-theme on <html> (components/DarkModeToggle.tsx),
+   read back here — not prefers-color-scheme, since this is a user choice,
+   not a system default. Redefines the same token names rather than
+   introducing separate dark-* variables, so every component that already
+   reads e.g. var(--surface-card) or var(--text-primary) picks this up with
+   no per-component dark-mode branching. */
+:root[data-theme="dark"] {
+  --text-primary: #f2f2f2;
+  --text-secondary: #b6b6b6;
+  --text-tertiary: #868686;
+  --text-inverse: #14151a;
+  --surface-page: #14151a;
+  --surface-card: #1c1d24;
+  --surface-sunken: #101114;
+  --surface-chip: #262731;
+  --border-default: #2c2d36;
+  --border-strong: #f2f2f2;
+  --ink-0: #f2f2f2;
+  --ink-2: #d6d6d6;
+  --ink-4: #868686;
+  --ink-5: #a0a0a0;
+  --gray-100: #1a1b21;
+  --gray-150: #1e1f26;
+  --gray-200: #26272f;
+  --gray-300: #33343d;
+  --green-50: rgba(0, 179, 134, 0.16);
+  --red-50: rgba(243, 93, 93, 0.16);
+  --glass-bg: rgba(32, 33, 40, 0.55);
+  --glass-bg-strong: rgba(32, 33, 40, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --page-gradient: linear-gradient(160deg, #10141a 0%, #171522 45%, #1a1510 100%);
 }

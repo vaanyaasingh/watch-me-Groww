@@ -105,6 +105,20 @@ export type SubscriptionWindowEntry = {
   last_changed_at: string;
 };
 
+export type MarketOverviewEntry = {
+  instrument_id: string;
+  type: string | null;
+  price: number | null;
+  price_delta_pct: number | null;
+  status: DisplayStatus;
+  last_checked_at: string | null;
+};
+
+export type Me = {
+  email: string;
+  watchlist_count: number;
+};
+
 export const api = {
   listInstruments: () => request<Instrument[]>("/api/instruments"),
 
@@ -128,4 +142,7 @@ export const api = {
   deleteAlert: (id: number) => request<void>(`/api/alerts/${id}`, { method: "DELETE" }),
 
   getSubscriptionWindows: () => request<SubscriptionWindowEntry[]>("/api/subscription-windows"),
+
+  getMarketOverview: () => request<MarketOverviewEntry[]>("/api/market-overview"),
+  getMe: () => request<Me>("/api/me"),
 };

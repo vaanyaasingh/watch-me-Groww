@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DarkModeToggle } from "./DarkModeToggle";
 import { glassNav, glassPillActive, glassPillInactive } from "./ds/glass";
 
 const LINKS = [
@@ -9,6 +10,7 @@ const LINKS = [
   { href: "/watchlist", label: "Watchlist" },
   { href: "/alerts", label: "Alerts" },
   { href: "/subscriptions", label: "Subscriptions" },
+  { href: "/profile", label: "Profile" },
 ];
 
 export function NavBar() {
@@ -54,6 +56,7 @@ export function NavBar() {
           );
         })}
       </nav>
+      <DarkModeToggle />
     </header>
   );
 }

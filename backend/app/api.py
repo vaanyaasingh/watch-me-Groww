@@ -22,16 +22,17 @@ from app.models import (
     Alert,
     Diff,
     Instrument,
-    NewsItem,
     SignificanceScore,
     Snapshot,
     SubscriptionWindow,
+    User,
     WatchlistItem,
 )
+from app.demo_seed import seed_demo_scenario
 from app.narrative import generate_digest
 from app.news_retrieval import get_relevant_news
 from app.reconciliation import reconcile_exchange_prices
-from app.seed import DEMO_USER_ID
+from app.seed import DEMO_USER_ID, REFERENCE_INSTRUMENT_IDS
 from app.staleness import compute_display_status
 
 router = APIRouter(prefix="/api")
@@ -105,7 +106,11 @@ def _rank_score(scores: list[SignificanceScore]) -> float:
 def list_instruments():
     session = SessionLocal()
     try:
-        instruments = session.scalars(select(Instrument)).all()
+        # Reference instruments (indices/currency) aren't something a user
+        # adds to their own watchlist — they show up via /api/market-overview
+        # instead, so they're excluded from the search/catalog list here.
+        stmt = select(Instrument).where(Instrument.id.not_in(REFERENCE_INSTRUMENT_IDS))
+        instruments = session.scalars(stmt).all()
         return [
             {"id": i.id, "type": i.type, "exchange": i.exchange, "sector": i.sector}
             for i in instruments
@@ -126,7 +131,10 @@ def get_watchlist():
     session = SessionLocal()
     try:
         now = _now_ist()
-        stmt = select(WatchlistItem).where(WatchlistItem.user_id == DEMO_USER_ID)
+        stmt = select(WatchlistItem).where(
+            WatchlistItem.user_id == DEMO_USER_ID,
+            WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
+        )
         items = session.scalars(stmt).all()
         result = []
         for item in items:
@@ -198,7 +206,10 @@ def get_attention_feed():
     try:
         now = _now_ist()
         watched = session.scalars(
-            select(WatchlistItem).where(WatchlistItem.user_id == DEMO_USER_ID)
+            select(WatchlistItem).where(
+                WatchlistItem.user_id == DEMO_USER_ID,
+                WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
+            )
         ).all()
 
         ranked = []
@@ -410,5 +421,76 @@ def list_subscription_windows():
                 }
             )
         return result
+    finally:
+        session.close()
+
+
+# --- Market overview (NIFTY 50 / SENSEX / USD-INR strip) ---
+
+
+@router.get("/market-overview")
+def get_market_overview():
+    session = SessionLocal()
+    try:
+        now = _now_ist()
+        result = []
+        for instrument_id in REFERENCE_INSTRUMENT_IDS:
+            instrument = session.get(Instrument, instrument_id)
+            snapshot = _latest_snapshot(session, instrument_id, DEMO_USER_ID)
+            diff = _latest_diff(session, instrument_id, DEMO_USER_ID)
+            result.append(
+                {
+                    "instrument_id": instrument_id,
+                    "type": instrument.type if instrument else None,
+                    "price": snapshot.price if snapshot else None,
+                    "price_delta_pct": diff.price_delta_pct if diff else None,
+                    "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
+                    "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
+                }
+            )
+        return result
+    finally:
+        session.close()
+
+
+# --- Current user (profile page; no real auth yet — see module docstring) ---
+
+
+@router.get("/me")
+def get_me():
+    session = SessionLocal()
+    try:
+        user = session.get(User, DEMO_USER_ID)
+        if user is None:
+            raise HTTPException(status_code=404, detail="Demo user not seeded yet")
+        count = len(
+            list(
+                session.scalars(
+                    select(WatchlistItem).where(
+                        WatchlistItem.user_id == DEMO_USER_ID,
+                        WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
+                    )
+                )
+            )
+        )
+        return {"email": user.email, "watchlist_count": count}
+    finally:
+        session.close()
+
+
+# --- Demo scenario seeding (not a real feature — see app/demo_seed.py) ---
+
+
+@router.post("/admin/seed-demo-scenario")
+def post_seed_demo_scenario():
+    """Populates a realistic "since you last checked N days ago" story
+    (real historical prices, real significance scoring, real retrieved
+    news) for a handful of instruments, so the digest/attention-feed views
+    have something genuine to show without a judge needing to run the
+    ingestion job by hand first. Safe to call more than once — instruments
+    that already have snapshot history are left alone."""
+    session = SessionLocal()
+    try:
+        return seed_demo_scenario(session)
     finally:
         session.close()

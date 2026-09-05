@@ -6,6 +6,8 @@ import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
 import { Freshness } from "@/components/ds/Freshness";
 import { glassCard } from "@/components/ds/glass";
+import { MarketOverviewStrip } from "@/components/MarketOverviewStrip";
+import { StockSearch } from "@/components/StockSearch";
 import type { AttentionFeedEntry } from "@/lib/api";
 import { useAttentionFeed } from "@/lib/hooks";
 
@@ -77,6 +79,12 @@ export default function AttentionFeedPage() {
 
   return (
     <div style={{ fontFamily: "var(--font-body)", maxWidth: 920, margin: "0 auto" }}>
+      <MarketOverviewStrip />
+
+      <div style={{ marginBottom: 24 }}>
+        <StockSearch />
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
         <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Attention</span>
         <div style={{ flex: 1 }} />
