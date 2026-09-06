@@ -177,3 +177,46 @@ def test_unknown_instrument_still_returns_empty_list(session):
     )
 
     assert result == []
+
+
+class _RaisingEmbeddingProvider:
+    """Simulates a real Gemini failure (bad key, rate limit, network blip)
+    — this project only found this path was unguarded by running against
+    a real, non-Vertex API key in production for the first time; a
+    regression test belongs here at the unit level too, not just caught live."""
+
+    def embed(self, text: str) -> list[float]:
+        raise RuntimeError("simulated Gemini embedding failure")
+
+
+def test_embedding_failure_degrades_to_significance_ranking_not_a_crash(session):
+    """get_relevant_news()'s own docstring says "never raises" — a live
+    embedding-provider failure must fall back to ranking by
+    significance-correlation alone (semantic term = 0), not propagate and
+    take down the whole digest request."""
+    session.add(Instrument(id="RELIANCE.NS", type="equity", sector="Energy"))
+    _mark_significant(session, "RELIANCE.NS", datetime(2026, 9, 2, 9, 0))
+    session.commit()
+
+    # Orthogonal embeddings (cos=0, well under the 0.92 dedupe threshold) so
+    # these are two distinct stories, not near-duplicates of each other —
+    # the fixture's own stored embeddings are irrelevant to what this test
+    # checks anyway, since the failure is in embedding the *query*.
+    _news_item(
+        session, id_suffix="on-significant-day", instrument_id="RELIANCE.NS", sector_id="Energy",
+        published_at=datetime(2026, 9, 2, 10, 0), embedding=[1.0, 0.0],
+    )
+    _news_item(
+        session, id_suffix="not-significant-day", instrument_id="RELIANCE.NS", sector_id="Energy",
+        published_at=datetime(2026, 9, 3, 10, 0), embedding=[0.0, 1.0],
+    )
+    session.commit()
+
+    result = get_relevant_news(
+        session, "RELIANCE.NS", SINCE, UNTIL, embedding_provider=_RaisingEmbeddingProvider()
+    )
+
+    assert len(result) == 2  # didn't raise, didn't drop either item
+    # The significant-day item must still rank first — semantic term is 0
+    # for everything, so significance-correlation is the only signal left.
+    assert result[0].url.endswith("on-significant-day")

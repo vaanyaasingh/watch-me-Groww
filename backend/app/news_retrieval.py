@@ -119,17 +119,30 @@ def get_relevant_news(
 
     representatives = _cluster_near_duplicates(candidates)
 
-    embedder = embedding_provider or get_embedding_provider()
-    # Instrument.name isn't in this project's data model (docs/plan.md §5) —
-    # the id (ticker) plus sector is the closest thing to a "what is this
-    # instrument" query string available to embed.
-    query_text = f"{instrument_id} {sector or ''}".strip()
-    query_embedding = embedder.embed(query_text)
+    # This function's own contract is "never raises" (see docstring) — a
+    # Gemini embedding failure (rate limit, network blip, a bad key) must
+    # degrade the ranking, not take down the whole digest request. Falling
+    # back to significance-correlation alone (semantic=0 below) rather than
+    # aborting is the same "one source failing doesn't sink the rest"
+    # principle app/ingestion/run_ingestion.py already applies at batch time
+    # — this is the same idea at request time.
+    query_embedding: list[float] | None
+    try:
+        embedder = embedding_provider or get_embedding_provider()
+        # Instrument.name isn't in this project's data model (docs/plan.md
+        # §5) — the id (ticker) plus sector is the closest thing to a
+        # "what is this instrument" query string available to embed.
+        query_text = f"{instrument_id} {sector or ''}".strip()
+        query_embedding = embedder.embed(query_text)
+    except Exception:
+        query_embedding = None
 
     significant_dates = _significant_dates(session, instrument_id)
 
     def _score(item: NewsItem) -> float:
-        semantic = _cosine_similarity(item.embedding, query_embedding) if item.embedding else 0.0
+        semantic = (
+            _cosine_similarity(item.embedding, query_embedding) if item.embedding and query_embedding else 0.0
+        )
         on_significant_day = 1.0 if item.published_at.date() in significant_dates else 0.0
         return SEMANTIC_WEIGHT * semantic + SIGNIFICANCE_WEIGHT * on_significant_day
 
