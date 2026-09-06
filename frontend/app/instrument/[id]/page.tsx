@@ -115,14 +115,16 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
               ban on order-execution/buy-sell language. Both tie into
               features this project actually has (watchlist, alerts). */}
           <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
-            <Button
-              variant={isWatched ? "outline" : "primary"}
-              size="lg"
-              fullWidth
-              onClick={() => (isWatched ? removeMutation.mutate(instrumentId) : addMutation.mutate(instrumentId))}
-            >
-              {isWatched ? "Remove from watchlist" : "Add to watchlist"}
-            </Button>
+            <div style={{ flex: 1 }}>
+              <Button
+                variant={isWatched ? "outline" : "primary"}
+                size="lg"
+                fullWidth
+                onClick={() => (isWatched ? removeMutation.mutate(instrumentId) : addMutation.mutate(instrumentId))}
+              >
+                {isWatched ? "Remove from watchlist" : "Add to watchlist"}
+              </Button>
+            </div>
             <Link href={`/alerts?instrument=${encodeURIComponent(instrumentId)}`} style={{ flex: 1, textDecoration: "none" }}>
               <Button variant="secondary" size="lg" fullWidth>
                 Set alert

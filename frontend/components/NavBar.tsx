@@ -23,17 +23,33 @@ export function NavBar() {
         top: 0,
         zIndex: 20,
         display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "14px 24px",
-        flexWrap: "wrap",
+        flexDirection: "column",
+        gap: 10,
+        padding: "12px 16px",
         ...glassNav,
       }}
     >
-      <span style={{ fontWeight: 800, fontSize: 15, fontFamily: "var(--font-display)", color: "#fff", letterSpacing: "-0.2px", whiteSpace: "nowrap" }}>
-        Smart Market Watchlist
-      </span>
-      <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ fontWeight: 800, fontSize: 15, fontFamily: "var(--font-display)", color: "#fff", letterSpacing: "-0.2px", whiteSpace: "nowrap" }}>
+          Smart Market Watchlist
+        </span>
+        <DarkModeToggle />
+      </div>
+      {/* A fixed two-row bar (brand+toggle, then this scrollable strip)
+          rather than letting the pills wrap — wrapping 5 pills at a phone
+          width used to push the toggle onto its own third row and eat a
+          third of the screen before any content appeared. Scrolling
+          horizontally keeps the bar's height constant regardless of
+          viewport width or how many links there are. */}
+      <nav
+        style={{
+          display: "flex",
+          gap: 6,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
         {LINKS.map((link) => {
           const active = pathname === link.href;
           return (
@@ -47,6 +63,8 @@ export function NavBar() {
                 fontFamily: "var(--font-body)",
                 fontWeight: active ? 800 : 500,
                 textDecoration: "none",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
                 transition: "background .15s ease",
                 ...(active ? glassPillActive : glassPillInactive),
               }}
@@ -56,7 +74,6 @@ export function NavBar() {
           );
         })}
       </nav>
-      <DarkModeToggle />
     </header>
   );
 }
