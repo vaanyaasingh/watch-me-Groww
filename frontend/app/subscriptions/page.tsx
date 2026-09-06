@@ -21,8 +21,8 @@ function Row({ entry }: { entry: SubscriptionWindowEntry }) {
       <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: STATUS_DOT[entry.status] ?? "var(--status-closed)" }} />
       <Avatar label={entry.instrument_id} size="md" shape="square" />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 400 }}>{entry.instrument_id}</span>
-        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{note(entry)}</span>
+        <span style={{ fontSize: 14.5, fontWeight: 700 }}>{entry.instrument_id}</span>
+        <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>{note(entry)}</span>
       </div>
       <Badge kind={`status-${entry.status}`}>{STATUS_LABEL[entry.status] ?? entry.status}</Badge>
     </div>
@@ -35,7 +35,7 @@ export default function SubscriptionWindowsPage() {
   return (
     <div style={{ fontFamily: "var(--font-body)", maxWidth: 860, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Subscription Window</span>
+        <span style={{ fontWeight: 800, fontSize: 18, fontFamily: "var(--font-display)" }}>Subscription Window</span>
         <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{(data ?? []).length} tracked</span>
       </div>
 

@@ -34,13 +34,14 @@ export function DarkModeToggle() {
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       style={{
         marginLeft: "auto",
-        border: "1px solid var(--glass-border)",
-        background: "var(--glass-bg)",
+        border: "none",
+        background: "var(--nav-pill-inactive-bg)",
         borderRadius: 20,
         padding: "8px 12px",
         fontSize: 13,
+        fontWeight: 700,
         cursor: "pointer",
-        color: "var(--text-primary)",
+        color: "var(--nav-pill-inactive-text)",
       }}
     >
       {theme === "dark" ? "☀ Light" : "☾ Dark"}

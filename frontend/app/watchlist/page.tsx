@@ -25,7 +25,7 @@ export default function WatchlistPage() {
   return (
     <div style={{ fontFamily: "var(--font-body)", maxWidth: 960, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Watchlist</span>
+        <span style={{ fontWeight: 800, fontSize: 18, fontFamily: "var(--font-display)" }}>Watchlist</span>
         <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{(watchlist ?? []).length} tracked</span>
       </div>
 
@@ -82,15 +82,15 @@ export default function WatchlistPage() {
             <Link href={`/instrument/${encodeURIComponent(item.instrument_id)}`} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
               <Avatar label={item.instrument_id} size="sm" shape="square" />
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, gap: 2 }}>
-                <span style={{ fontSize: 15, fontWeight: 400 }}>{item.instrument_id}</span>
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{item.sector ?? item.type}</span>
+                <span style={{ fontSize: 14.5, fontWeight: 700 }}>{item.instrument_id}</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>{item.sector ?? item.type}</span>
                 <Freshness status={item.status} lastCheckedAt={item.last_checked_at} />
               </div>
             </Link>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>{item.price !== null ? `₹${item.price.toFixed(2)}` : "—"}</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{item.price !== null ? `₹${item.price.toFixed(2)}` : "—"}</span>
               {item.price_delta_pct !== null && (
-                <span style={{ fontSize: 12, color: item.price_delta_pct >= 0 ? "var(--text-positive)" : "var(--text-negative)" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: item.price_delta_pct >= 0 ? "var(--text-positive)" : "var(--text-negative)" }}>
                   {item.price_delta_pct >= 0 ? "+" : ""}
                   {(item.price_delta_pct * 100).toFixed(2)}%
                 </span>

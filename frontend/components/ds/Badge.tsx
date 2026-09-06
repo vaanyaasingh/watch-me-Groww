@@ -1,11 +1,17 @@
-// Ported from kit/components/core/Badge.jsx.
+// Solid-fill pills, not tinted outlines — the mockup's attention/status
+// badges are the attention color itself as a background with bold white
+// text, not a pale tint (that treatment moved to the narrative/status
+// boxes instead, see design-tokens.css's green-50/red-50/amber-50). Amber
+// fills keep dark ink text rather than white — white-on-amber reads too
+// low-contrast, exactly the same reasoning as --text-inverse in
+// design-tokens.css.
 const KINDS: Record<string, { background: string; color: string }> = {
-  "attention-high": { background: "var(--red-50)", color: "var(--attention-high)" },
-  "attention-medium": { background: "var(--amber-50)", color: "var(--attention-medium)" },
-  "attention-low": { background: "var(--green-50)", color: "var(--attention-low)" },
-  "status-open": { background: "var(--green-50)", color: "var(--status-open)" },
-  "status-closing": { background: "var(--amber-50)", color: "var(--status-closing)" },
-  "status-closed": { background: "var(--gray-100)", color: "var(--status-closed)" },
+  "attention-high": { background: "var(--attention-high)", color: "#fff" },
+  "attention-medium": { background: "var(--attention-medium)", color: "var(--ink)" },
+  "attention-low": { background: "var(--attention-low)", color: "#fff" },
+  "status-open": { background: "var(--status-open)", color: "#fff" },
+  "status-closing": { background: "var(--status-closing)", color: "var(--ink)" },
+  "status-closed": { background: "var(--status-closed)", color: "#fff" },
   neutral: { background: "var(--surface-chip)", color: "var(--text-secondary)" },
 };
 
@@ -15,7 +21,7 @@ export function Badge({ kind = "neutral", children }: { kind?: string; children:
     <span
       style={{
         fontFamily: "var(--font-body)",
-        fontWeight: 600,
+        fontWeight: 800,
         fontSize: "var(--text-caption)",
         padding: "4px 10px",
         borderRadius: "var(--radius-pill)",
@@ -23,11 +29,10 @@ export function Badge({ kind = "neutral", children }: { kind?: string; children:
         alignItems: "center",
         gap: 4,
         whiteSpace: "nowrap",
-        letterSpacing: "0.2px",
+        letterSpacing: "0.3px",
         ...k,
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
       {children}
     </span>
   );

@@ -34,11 +34,11 @@ function OverviewCard({ entry }: { entry: MarketOverviewEntry }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: "var(--text-label)", fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.3px" }}>
+          <div style={{ fontSize: "var(--text-label)", fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.3px" }}>
             {LABELS[entry.instrument_id] ?? entry.instrument_id}
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
-            <span style={{ fontSize: "var(--text-price)", fontWeight: 500, fontFamily: "var(--font-display)" }}>
+            <span style={{ fontSize: "var(--text-price)", fontWeight: 800, fontFamily: "var(--font-display)" }}>
               {entry.price !== null ? entry.price.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "—"}
             </span>
             {entry.price_delta_pct !== null && (

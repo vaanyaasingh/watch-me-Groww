@@ -12,9 +12,9 @@ import { useAddToWatchlist, useDigest, useRemoveFromWatchlist, useSparkline, use
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 500 }}>{value}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-tertiary)" }}>{label}</span>
+      <span style={{ fontSize: 15, fontWeight: 700 }}>{value}</span>
     </div>
   );
 }
@@ -50,8 +50,8 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
         <span onClick={() => router.back()} style={{ cursor: "pointer", fontSize: 18 }}>
           ←
         </span>
-        <Avatar label={instrumentId} size="sm" shape="square" />
-        <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>{instrumentId}</span>
+        <Avatar label={instrumentId} size="sm" shape="square" background="var(--ink)" color="var(--amber)" />
+        <span style={{ fontWeight: 800, fontSize: 18, fontFamily: "var(--font-display)" }}>{instrumentId}</span>
         <Freshness status={data.status} lastCheckedAt={data.last_checked_at} />
         <div style={{ flex: 1 }} />
         {data.significance[0] && <Chip>{data.significance[0].category}</Chip>}
@@ -62,7 +62,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
           {data.price !== null && (
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontWeight: 400, fontSize: 30 }}>₹{data.price.toFixed(2)}</span>
+                <span style={{ fontWeight: 800, fontSize: 32 }}>₹{data.price.toFixed(2)}</span>
                 {data.price_delta_pct !== null && (
                   <span style={{ fontSize: 15, color: positive ? "var(--text-positive)" : "var(--text-negative)" }}>
                     {positive ? "+" : ""}
@@ -74,9 +74,9 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
             </div>
           )}
 
-          <div style={{ marginTop: 14, padding: 16, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 4, ...glassCard, background: narrativeBg }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: narrativeColor }}>Since you last checked</span>
-            <span style={{ fontSize: 14, color: "var(--ink-2)" }}>{data.narrative}</span>
+          <div style={{ marginTop: 14, padding: 16, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 5, background: narrativeBg }}>
+            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.4px", textTransform: "uppercase", color: narrativeColor }}>Since you last checked</span>
+            <span style={{ fontSize: 14.5, color: "var(--ink-2)", fontWeight: 500 }}>{data.narrative}</span>
           </div>
 
           {data.exchange_reconciliation && (
@@ -133,7 +133,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
 
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontWeight: 500, fontSize: 16 }}>News</span>
+            <span style={{ fontWeight: 800, fontSize: 16 }}>News</span>
           </div>
           {data.news.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>No related news in the relevant window.</p>
@@ -148,7 +148,6 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
                   style={{
                     padding: "14px 16px",
                     borderRadius: "var(--radius-md)",
-                    borderLeft: "3px solid var(--accent-info)",
                     display: "flex",
                     flexDirection: "column",
                     gap: 5,
@@ -157,9 +156,9 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
                     ...glassCard,
                   }}
                 >
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>{item.title}</span>
-                  <div style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-tertiary)" }}>
-                    <span style={{ fontWeight: 600, color: "var(--accent-info)" }}>{item.source}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{item.title}</span>
+                  <div style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>
+                    <span>{item.source}</span>
                     <span>·</span>
                     <span>{new Date(item.published_at).toLocaleDateString()}</span>
                   </div>

@@ -30,7 +30,7 @@ export function NavBar() {
         ...glassNav,
       }}
     >
-      <span style={{ fontWeight: 600, fontSize: 14, fontFamily: "var(--font-display)", whiteSpace: "nowrap" }}>
+      <span style={{ fontWeight: 800, fontSize: 15, fontFamily: "var(--font-display)", color: "#fff", letterSpacing: "-0.2px", whiteSpace: "nowrap" }}>
         Smart Market Watchlist
       </span>
       <nav style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -45,7 +45,7 @@ export function NavBar() {
                 borderRadius: 20,
                 fontSize: 13,
                 fontFamily: "var(--font-body)",
-                fontWeight: active ? 600 : 400,
+                fontWeight: active ? 800 : 500,
                 textDecoration: "none",
                 transition: "background .15s ease",
                 ...(active ? glassPillActive : glassPillInactive),

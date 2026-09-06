@@ -166,15 +166,26 @@ snapshot to diff against) to see the attention feed and digest populate.
   dropped per `docs/SOURCE_OF_TRUTH.md`'s ban on order-execution/buy-sell
   language, replaced with "Add/remove watchlist" and "Set alert" in the
   same button slots, styled with the same `Button` component minus those
-  two variants. A later pass (`components/ds/glass.ts`) layered a
-  frosted-glass visual treatment on top of those same tokens —
-  translucency, blur, depth, inspired by Apple's Liquid Glass but
-  implemented as plain CSS (`backdrop-filter`), since the native
-  SwiftUI/UIKit APIs that name describes don't apply to a web app; the
-  glass colors are CSS variables (not hardcoded), so a dark-mode toggle
-  (`components/DarkModeToggle.tsx`, persisted to `localStorage`) flips
-  every surface in the app at once by redefining the same token names
-  under `:root[data-theme="dark"]` rather than branching per component.
+  two variants — the same substitution applies to a second design pass
+  below. A dark-mode toggle (`components/DarkModeToggle.tsx`, persisted to
+  `localStorage`) flips every surface in the app at once by redefining the
+  same token names under `:root[data-theme="dark"]` rather than branching
+  per component.
+
+  The current visual direction ("Pulsewatch" — a warm cream/amber/
+  terracotta/olive editorial palette, Sora throughout) replaced an earlier
+  dark frosted-glass theme, implemented from a Claude Design mockup
+  (`Smart Market Watchlist.dc.html`, project `3d1e8be7-...`) rather than
+  from scratch. That mockup's Instrument Digest screen again had literal
+  "Buy"/"Sell" buttons — dropped the same way as the original export's,
+  for the same `docs/SOURCE_OF_TRUTH.md` reason. It also has no dark-mode
+  variant of its own; the dark-mode tokens in `design-tokens.css` are this
+  project's own construction in the same palette, built so the toggle
+  already shipped doesn't regress. `components/ds/glass.ts` (name kept
+  from the earlier translucent treatment; every consumer already imports
+  it) now renders solid white/dark "paper" cards with a soft drop shadow
+  instead of blur — the whole point of this direction is an opaque,
+  paper-like surface, not translucency.
   `components/ds/Freshness.tsx` surfaces the staleness/last-checked data
   in every screen that shows a price. `/login` and `/profile`
   (`lib/auth.ts`, `lib/firebase.ts`, `components/AuthGate.tsx`) are real

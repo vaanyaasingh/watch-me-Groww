@@ -71,7 +71,7 @@ export default function LoginPage() {
       }}
     >
       <div style={{ maxWidth: 420, width: "100%" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, letterSpacing: "-0.4px", marginBottom: 8 }}>
           Smart Market Watchlist
         </h1>
         <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 32 }}>
@@ -99,7 +99,7 @@ export default function LoginPage() {
                   cursor: "pointer",
                   fontSize: 13,
                   fontWeight: 600,
-                  background: mode === m ? "var(--ink-0)" : "transparent",
+                  background: mode === m ? "var(--accent-primary)" : "transparent",
                   color: mode === m ? "var(--text-inverse)" : "var(--text-secondary)",
                 }}
               >

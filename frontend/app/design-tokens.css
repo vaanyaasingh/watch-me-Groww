@@ -1,72 +1,88 @@
-/* Ported verbatim from the Claude Design export
-   (_ds/groww-design-system-c473eec2.../tokens/*.css) — copied locally
-   rather than @import-ing the design tool's hosted paths, since Next.js
-   can't reach those at build time. Keep in sync by hand if the design
-   system project is updated. */
+/* "Pulsewatch" visual direction — a warm editorial aesthetic (cream page,
+   amber/terracotta/olive accents, Sora throughout) implemented from a
+   Claude Design mockup (project 3d1e8be7-495a-41be-a7dc-119b9ad32c4e,
+   "Smart Market Watchlist.dc.html"), replacing the earlier dark
+   frosted-glass theme. Token *names* are kept stable from that earlier
+   pass (--glass-bg, --accent-primary, --text-inverse, ...) so every
+   component that already reads them repaints automatically; only the
+   *values* change here, plus a few new tokens (--nav-*, --card-shadow)
+   for things the old glass theme didn't need. The mockup itself has no
+   dark-mode variant — the dark block below is this project's own
+   construction in the same palette, not something the source designed. */
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Inter:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* colors.css */
-  --green-50: #e9faf2;
-  --green-500: #00b386;
-  --green-600: #00a378;
-  --green-700: #32b495;
-  --red-50: #fdeaea;
-  --red-500: #f35d5d;
-  --red-600: #e04a4a;
-  --amber-50: #fdf3e4;
-  --amber-500: #e8a33d;
-  --ink-0: #000000;
-  --ink-1: #1e1e1e;
-  --ink-2: #3a3a3a;
-  --ink-3: #757575;
-  --ink-4: #969696;
-  --ink-5: #9b9b9c;
-  --gray-50: #f5f6f6;
-  --gray-100: #f3f3f3;
-  --gray-150: #ececec;
-  --gray-200: #e8e8e8;
-  --gray-300: #dadada;
-  --gray-400: #cacaca;
-  --gray-500: #b7b7b7;
-  --gray-600: #e7e7e7;
+  /* Core palette, straight from the mockup's own color constants */
+  --ink: #1F1B16;
+  --cream: #F3EEE2;
+  --amber: #F5A623;
+  --terracotta: #C4442E;
+  --olive: #5B7A3A;
+  --muted: #8A8270;
+
+  --ink-0: var(--ink);
+  --ink-1: #1F1B16;
+  --ink-2: #3A362C;
+  --ink-3: #5A5346;
+  --ink-4: var(--muted);
+  --ink-5: #B0A88F;
+  --gray-50: #F3EEE2;
+  --gray-100: #EAE3D2;
+  --gray-150: #E3DCC9;
+  --gray-200: #E3DCC9;
+  --gray-300: #D8D2C4;
+  --gray-400: #B0A88F;
+  --gray-500: var(--muted);
+  --gray-600: #EAE3D2;
   --white: #ffffff;
-  --indigo-500: #4e5acc;
-  --text-primary: var(--ink-0);
+  --indigo-500: var(--olive);
+
+  --text-primary: var(--ink);
   --text-secondary: var(--ink-3);
-  --text-tertiary: var(--ink-4);
-  --text-inverse: var(--white);
-  --text-positive: var(--green-500);
-  --text-negative: var(--red-500);
-  --surface-page: var(--white);
-  --surface-card: var(--white);
-  --surface-sunken: var(--gray-50);
-  --surface-chip: var(--gray-150);
-  --border-default: var(--gray-200);
-  --border-strong: var(--ink-0);
-  --border-dashed: var(--gray-400);
-  --accent-primary: var(--green-500);
-  --accent-info: var(--indigo-500);
-  --attention-high: var(--red-500);
-  --attention-medium: var(--amber-500);
-  --attention-low: var(--green-600);
-  --status-open: var(--green-500);
-  --status-closing: var(--amber-500);
-  --status-closed: var(--ink-4);
+  --text-tertiary: var(--muted);
+  /* Text-on-accent — since --accent-primary is now a light amber, its
+     "inverse" is dark ink, not white (matches the mockup's Save/Buy
+     buttons, both dark text on a bright fill). */
+  --text-inverse: var(--ink);
+  --text-positive: var(--olive);
+  --text-negative: var(--terracotta);
 
-  /* Glass surface + page-background tokens — not from the design export,
-     added for the frosted-glass visual pass (components/ds/glass.ts).
-     Kept as variables (rather than hardcoded rgba() in glass.ts) so dark
-     mode flips every glass surface at once instead of needing a
-     light/dark variant threaded through every component. */
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-bg-strong: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --glass-shadow: 0 8px 32px rgba(31, 41, 55, 0.08);
-  --page-gradient: linear-gradient(160deg, #eafaf3 0%, #f3f2fc 45%, #fdf6ec 100%);
+  --surface-page: var(--cream);
+  --surface-card: #ffffff;
+  --surface-sunken: #EAE3D2;
+  --surface-chip: #EAE3D2;
+  --border-default: #E3DCC9;
+  --border-strong: var(--ink);
+  --border-dashed: #E3B04E;
 
-  /* spacing.css */
+  --accent-primary: var(--amber);
+  --accent-info: var(--olive);
+  --attention-high: var(--terracotta);
+  --attention-medium: var(--amber);
+  --attention-low: var(--olive);
+  --status-open: var(--olive);
+  --status-closing: var(--amber);
+  --status-closed: var(--muted);
+
+  /* Solid cards with a soft drop shadow, not frosted glass — the mockup's
+     whole point is a warm, paper-like surface, not translucency. Kept
+     under the old --glass-* names so every consumer (glass.ts,
+     DarkModeToggle, the digest page's narrative box) repaints without
+     needing its own edit. */
+  --glass-bg: var(--surface-card);
+  --glass-bg-strong: var(--surface-card);
+  --glass-border: var(--border-default);
+  --glass-shadow: 0 1px 0 rgba(31, 27, 22, 0.08), 0 3px 10px rgba(31, 27, 22, 0.05);
+  --page-gradient: var(--cream);
+
+  /* The top nav is a fixed dark brand bar in the mockup — independent of
+     the light/dark page toggle below, so these are never redefined in the
+     dark-mode block. */
+  --nav-bg: #1F1B16;
+  --nav-pill-inactive-bg: #2E2A22;
+  --nav-pill-inactive-text: #D8D2C4;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 10px;
@@ -76,26 +92,25 @@
   --space-7: 22px;
   --space-8: 30px;
   --space-9: 45px;
-  --radius-sm: 5px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-pill: 40px;
   --radius-circle: 50%;
-  --shadow-nav: 0px 0px 5px 0px rgba(0, 0, 0, 0.25);
+  --shadow-nav: 0 1px 0 rgba(31, 27, 22, 0.1);
   --shadow-card-border: inset 0 0 0 1px var(--border-default);
   --shadow-focus-border: inset 0 0 0 1px var(--border-strong);
 
-  /* typography.css */
-  --font-body: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: Inter, var(--font-body);
+  --font-body: 'Sora', system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: 'Sora', var(--font-body);
   --fw-regular: 400;
   --fw-medium: 500;
-  --fw-semibold: 600;
+  --fw-semibold: 700;
   --text-display-lg: 27px;
   --lh-display-lg: 32px;
   --text-display: 24px;
   --lh-display: 29px;
-  --text-price: 30px;
+  --text-price: 32px;
   --lh-price: 100%;
   --text-title: 18px;
   --lh-title: 100%;
@@ -109,39 +124,61 @@
   --lh-label: 100%;
   --text-caption: 11px;
   --lh-caption: 100%;
+
+  /* Light-mode tints for the narrative/status boxes (digest page, badges)
+     — named after the old Groww palette's green-50/red-50/amber-50 but now
+     olive/terracotta/amber-tinted, matching the mockup's "SINCE YOU LAST
+     CHECKED" box treatment (a pale tint, not a hard fill). */
+  --green-50: #EAF0E1;
+  --red-50: #F7DCD3;
+  --amber-50: #FBF0DA;
 }
 
-/* Dark mode: a manual toggle sets data-theme on <html> (components/DarkModeToggle.tsx),
-   read back here — not prefers-color-scheme, since this is a user choice,
-   not a system default. Redefines the same token names rather than
-   introducing separate dark-* variables, so every component that already
-   reads e.g. var(--surface-card) or var(--text-primary) picks this up with
-   no per-component dark-mode branching. */
+/* Dark mode: same warm family, inverted — not part of the source mockup,
+   built here so the toggle we already shipped doesn't regress. Accent
+   colors (amber/terracotta/olive) are brightened slightly for AA contrast
+   against a near-black warm background; the nav bar tokens above are
+   deliberately absent here since the nav stays the same fixed dark brand
+   bar in both themes. */
 :root[data-theme="dark"] {
-  --text-primary: #f2f2f2;
-  --text-secondary: #b6b6b6;
-  --text-tertiary: #868686;
-  --text-inverse: #14151a;
-  --surface-page: #14151a;
-  --surface-card: #1c1d24;
-  --surface-sunken: #101114;
-  --surface-chip: #262731;
-  --border-default: #2c2d36;
-  --border-strong: #f2f2f2;
-  --ink-0: #f2f2f2;
-  --ink-2: #d6d6d6;
-  --ink-4: #868686;
-  --ink-5: #a0a0a0;
-  --gray-100: #1a1b21;
-  --gray-150: #1e1f26;
-  --gray-200: #26272f;
-  --gray-300: #33343d;
-  --green-50: rgba(0, 179, 134, 0.16);
-  --red-50: rgba(243, 93, 93, 0.16);
-  --amber-50: rgba(232, 163, 61, 0.18);
-  --glass-bg: rgba(32, 33, 40, 0.55);
-  --glass-bg-strong: rgba(32, 33, 40, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --page-gradient: linear-gradient(160deg, #10141a 0%, #171522 45%, #1a1510 100%);
+  --ink-0: #F3EEE2;
+  --ink-2: #D8D2C4;
+  --ink-3: #A89C82;
+  --ink-4: #8A8270;
+  --ink-5: #6E6552;
+  --gray-100: #211C15;
+  --gray-150: #1B170F;
+  --gray-200: #322B1E;
+  --gray-300: #443A28;
+
+  --text-primary: var(--ink-0);
+  --text-secondary: var(--ink-3);
+  --text-tertiary: var(--ink-4);
+  --text-inverse: var(--ink);
+  --text-positive: #7BA355;
+  --text-negative: #E0725A;
+
+  --surface-page: #17140F;
+  --surface-card: #211C15;
+  --surface-sunken: #1B170F;
+  --surface-chip: #2A2418;
+  --border-default: #322B1E;
+  --border-strong: #F3EEE2;
+
+  --attention-high: #E0725A;
+  --attention-medium: #F5A623;
+  --attention-low: #7BA355;
+  --status-open: #7BA355;
+  --status-closing: #F5A623;
+  --status-closed: #8A8270;
+
+  --glass-bg: var(--surface-card);
+  --glass-bg-strong: #271F16;
+  --glass-border: var(--border-default);
+  --glass-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --page-gradient: var(--surface-page);
+
+  --green-50: rgba(123, 163, 85, 0.16);
+  --red-50: rgba(224, 114, 90, 0.16);
+  --amber-50: rgba(245, 166, 35, 0.16);
 }

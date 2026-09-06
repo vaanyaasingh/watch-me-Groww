@@ -1,19 +1,15 @@
-// Visual direction only — not a port of Apple's native Liquid Glass APIs
-// (glassEffect(), GlassEffectContainer, etc. are SwiftUI/UIKit-only and
-// don't apply to a web app). This is the CSS equivalent of that aesthetic:
-// frosted translucency, blur, depth — layered on top of this project's
-// existing Groww design tokens (app/design-tokens.css) rather than
-// replacing them, so surfaces still read as this app, not a generic kit.
-//
-// Colors are CSS variables, not hardcoded rgba(), specifically so dark
-// mode (design-tokens.css's :root[data-theme="dark"] block) flips every
-// glass surface in the app at once.
+// Solid "paper" cards, not frosted glass — the "Pulsewatch" visual
+// direction (Claude Design project 3d1e8be7-495a-41be-a7dc-119b9ad32c4e)
+// uses opaque white cards with a soft drop shadow on a flat cream page,
+// replacing the earlier translucent/blurred treatment. Kept under the
+// same export names as that earlier pass (glassCard, glassNav, ...) so
+// every component that already imports them repaints from the new
+// design-tokens.css values alone — only this file's actual CSS changed,
+// no import needs to move.
 import type { CSSProperties } from "react";
 
 export const glassCard: CSSProperties = {
   background: "var(--glass-bg)",
-  backdropFilter: "blur(20px) saturate(160%)",
-  WebkitBackdropFilter: "blur(20px) saturate(160%)",
   border: "1px solid var(--glass-border)",
   boxShadow: "var(--glass-shadow)",
 };
@@ -24,22 +20,19 @@ export const glassCardHover: CSSProperties = {
 };
 
 export const glassNav: CSSProperties = {
-  background: "var(--glass-bg)",
-  backdropFilter: "blur(24px) saturate(160%)",
-  WebkitBackdropFilter: "blur(24px) saturate(160%)",
-  borderBottom: "1px solid var(--glass-border)",
+  background: "var(--nav-bg)",
 };
 
+// The active/inactive nav pills share the fixed dark nav bar's own
+// palette (--nav-*), not the page's light/dark theme tokens — the mockup
+// treats the top bar as a constant brand surface, not something that
+// flips with the reader's theme choice.
 export const glassPillActive: CSSProperties = {
-  background: "var(--ink-0)",
+  background: "var(--accent-primary)",
   color: "var(--text-inverse)",
-  boxShadow: "0 4px 14px rgba(0, 0, 0, 0.18)",
 };
 
 export const glassPillInactive: CSSProperties = {
-  background: "var(--glass-bg)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  border: "1px solid var(--glass-border)",
-  color: "var(--text-primary)",
+  background: "var(--nav-pill-inactive-bg)",
+  color: "var(--nav-pill-inactive-text)",
 };

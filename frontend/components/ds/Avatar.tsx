@@ -11,12 +11,20 @@ export function Avatar({
   size = "md",
   shape = "circle",
   label,
+  background,
+  color,
 }: {
   src?: string;
   alt?: string;
   size?: keyof typeof SIZES;
   shape?: "circle" | "square";
   label?: string;
+  // Attention-colored tiles (the feed's per-instrument avatar) need a
+  // caller-chosen fill rather than the neutral default every other screen
+  // uses (watchlist rows, digest header, subscription tracker) — optional
+  // so those call sites don't change.
+  background?: string;
+  color?: string;
 }) {
   const px = SIZES[size] ?? 35;
   const initials = (label ?? alt).replace(/\.(NS|BO)$/, "").slice(0, 2).toUpperCase();
@@ -30,15 +38,15 @@ export function Avatar({
         height: px,
         borderRadius: shape === "circle" ? "var(--radius-circle)" : "var(--radius-sm)",
         overflow: "hidden",
-        background: src ? `url(${src}) center/cover no-repeat` : "var(--gray-200)",
+        background: src ? `url(${src}) center/cover no-repeat` : background ?? "var(--surface-chip)",
         flexShrink: 0,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "var(--font-display)",
-        fontWeight: 600,
+        fontWeight: 700,
         fontSize: Math.max(10, px * 0.32),
-        color: "var(--ink-4)",
+        color: color ?? "var(--ink-0)",
       }}
     >
       {!src && initials}

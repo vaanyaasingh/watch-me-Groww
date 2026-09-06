@@ -39,7 +39,7 @@ function AlertsPageInner() {
     <div style={{ fontFamily: "var(--font-body)", maxWidth: 560, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
         {instrumentId && <Avatar label={instrumentId} size="sm" shape="square" />}
-        <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>
+        <span style={{ fontWeight: 800, fontSize: 18, fontFamily: "var(--font-display)" }}>
           Set alert{instrumentId ? ` · ${instrumentId}` : ""}
         </span>
       </div>
@@ -57,12 +57,12 @@ function AlertsPageInner() {
         ))}
       </select>
 
-      <div style={{ padding: 20, borderRadius: "var(--radius-md)", boxShadow: "inset 0 0 0 1px var(--green-500), 0 8px 32px rgba(31,41,55,0.08)", background: "rgba(233,250,242,0.7)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+      <div style={{ padding: 20, borderRadius: "var(--radius-lg)", boxShadow: "0 0 0 2px var(--text-positive)", background: "var(--green-50)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--green-600)", letterSpacing: 0.4 }}>RECOMMENDED</span>
-            <span style={{ fontSize: 16, fontWeight: 500 }}>Notify me on significant change</span>
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-positive)", letterSpacing: 0.5 }}>RECOMMENDED</span>
+            <span style={{ fontSize: 16, fontWeight: 800 }}>Notify me on significant change</span>
+            <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 500 }}>
               Alerts only when the move is unusual for this instrument — reuses the same significance engine behind the Attention Feed, not a flat threshold.
             </span>
           </div>
@@ -80,9 +80,9 @@ function AlertsPageInner() {
         </div>
         {manualOpen && (
           <div style={{ marginTop: 8, padding: 16, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 10, ...glassCard }}>
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Alert me when price crosses</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 14px", borderRadius: "var(--radius-md)", background: "rgba(255,255,255,0.6)" }}>
-              <span style={{ fontWeight: 500, fontSize: 16 }}>₹</span>
+            <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>Alert me when price crosses</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 14px", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)" }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>₹</span>
               <input
                 value={targetPrice}
                 onChange={(e) => setTargetPrice(e.target.value)}

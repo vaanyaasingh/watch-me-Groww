@@ -47,17 +47,24 @@ function FeedCard({ entry }: { entry: AttentionFeedEntry }) {
         padding: "16px 18px",
         borderRadius: "var(--radius-md)",
         cursor: "pointer",
-        borderLeft: `4px solid var(--attention-${level})`,
+        borderLeft: `5px solid var(--attention-${level})`,
         textDecoration: "none",
         color: "inherit",
         transition: "background .15s ease",
         ...glassCard,
       }}
     >
-      <Avatar label={entry.instrument_id} size="lg" shape="square" alt={entry.instrument_id} />
+      <Avatar
+        label={entry.instrument_id}
+        size="lg"
+        shape="square"
+        alt={entry.instrument_id}
+        background={`var(--attention-${level})`}
+        color={level === "medium" ? "var(--ink)" : "#fff"}
+      />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <span style={{ fontWeight: 500, fontSize: 16 }}>{entry.instrument_id}</span>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>{entry.instrument_id}</span>
           <Badge kind={`attention-${level}`}>{LEVEL_LABEL[level]}</Badge>
         </div>
         {entry.sector && <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{entry.sector}</span>}
@@ -93,7 +100,7 @@ export default function AttentionFeedPage() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <span style={{ fontWeight: 500, fontSize: 18, fontFamily: "var(--font-display)" }}>Attention</span>
+        <span style={{ fontWeight: 800, fontSize: 22, fontFamily: "var(--font-display)", letterSpacing: "-0.5px" }}>Attention</span>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Ranked by significance, not alphabetically</span>
       </div>
@@ -120,7 +127,7 @@ export default function AttentionFeedPage() {
       )}
 
       {data && data.collapsed.length > 0 && (
-        <div style={{ marginTop: 28, borderRadius: "var(--radius-md)", padding: 4, ...glassCard }}>
+        <div style={{ marginTop: 28, borderRadius: "var(--radius-md)", padding: 4, background: "var(--surface-sunken)" }}>
           <div
             onClick={() => setExpanded(!expanded)}
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", cursor: "pointer", opacity: 0.7 }}
@@ -133,7 +140,7 @@ export default function AttentionFeedPage() {
               {data.collapsed.map((entry) => (
                 <div
                   key={entry.instrument_id}
-                  style={{ display: "flex", justifyContent: "space-between", padding: "10px 4px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 13 }}
+                  style={{ display: "flex", justifyContent: "space-between", padding: "10px 4px", borderBottom: "1px solid var(--border-default)", fontSize: 13, fontWeight: 600 }}
                 >
                   <span>{entry.instrument_id}</span>
                   <span style={{ color: "var(--text-tertiary)" }}>
