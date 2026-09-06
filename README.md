@@ -33,6 +33,16 @@ directly. Two things fall out of that:
    only its provider implementation changes; the diff engine, significance
    scoring, and UI never know the difference.
 
+`YFinanceProvider.get_quote()` also throttles: yfinance is unofficial and
+rate-limit-sensitive, so repeated calls for the same ticker within 60
+seconds are served from a small in-process cache rather than re-fetched
+(`app/providers/yfinance_provider.py`) — a plain dict rather than the
+Postgres-table/Redis this project's own tech-stack notes once considered,
+since yfinance's own data is itself typically 15+ minutes delayed and a
+second moving part wasn't worth it for what this actually needed to guard
+against (several near-simultaneous requests for the same instrument, not
+long-term freshness).
+
 ## Running locally
 
 **Backend** (Python 3.11+):
@@ -87,10 +97,18 @@ Visit `http://localhost:3000`. Start the backend first (above) — the
 frontend talks to it at `http://localhost:8000` by default
 (`NEXT_PUBLIC_API_BASE_URL` to override). On backend startup, `app/seed.py`
 seeds the instrument catalog, a single demo user, and two placeholder
-subscription-window rows, so the UI has something to show immediately —
-add an instrument to the watchlist, then run
-`python -m app.ingestion.run_ingestion` (more than once, so there's a prior
-snapshot to diff against) to see the attention feed and digest populate.
+subscription-window rows, so the UI has something to show immediately.
+
+To see the attention feed/digest actually populate with a real "since you
+last checked" story, add an instrument to the watchlist and call
+`POST /api/admin/seed-demo-scenario` (see `app/demo_seed.py`) rather than
+running `python -m app.ingestion.run_ingestion` by hand more than once —
+`MockProvider.get_quote()` is a fixed fixture value (the same price on
+every call, by design, so tests stay deterministic), so two manual
+ingestion runs always diff a price against itself and show a flat 0.00%
+change, never a populated feed. `seed_demo_scenario()` instead diffs
+against a real, different point from the instrument's own historical
+series, which is what actually produces a real, scoreable price move.
 
 ## Layout
 

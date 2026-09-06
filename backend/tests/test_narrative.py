@@ -76,7 +76,7 @@ def test_gemini_generic_exception_also_falls_back_to_template():
 
     result = generate_digest(diff, significance, [], narrative_provider=provider)
 
-    assert result == "TCS.NS moved down 4.3% since you last checked, driven by threshold."
+    assert result == "TCS.NS moved down 4.3% since you last checked, driven by crossing a key price threshold."
 
 
 # --- Success path: Gemini responds normally ---
@@ -158,4 +158,4 @@ def test_no_provider_configured_uses_template_directly():
 
     result = generate_digest(diff, significance, [_news("Some headline")], narrative_provider=None)
 
-    assert result == "HDFCBANK.NS moved up 6.5% since you last checked, driven by statistical."
+    assert result == "HDFCBANK.NS moved up 6.5% since you last checked, driven by a statistically unusual price move."

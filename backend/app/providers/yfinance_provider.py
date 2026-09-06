@@ -22,6 +22,37 @@ logger = logging.getLogger(__name__)
 RETRY_ATTEMPTS = 3
 RETRY_BASE_DELAY_SECONDS = 0.5
 
+# docs/plan.md's tech-stack section calls for "a simple Postgres-based
+# cache table (or Memorystore/Redis)" to throttle yfinance calls — this is
+# a plain in-process dict instead: yfinance is unofficial and rate-limit-
+# sensitive (see the module docstring), and the batch ingestion job
+# already calls get_quote() once per distinct watched instrument per run
+# (never per user, see run_ingestion.py), so what this cache actually
+# guards against is a *different* kind of duplication — several requests
+# in quick succession (e.g. the sparkline endpoint and an ingestion run
+# landing close together) re-fetching the same ticker. A short TTL is
+# enough for that without a second moving part (Postgres/Redis) this
+# project doesn't otherwise need; yfinance's own data is itself typically
+# 15+ minutes delayed, so a 60-second cache never trades away real
+# freshness. Process-local by design — acceptable for a single-instance
+# deployment (this project's), not a claim it'd scale to many workers.
+QUOTE_CACHE_TTL_SECONDS = 60
+_quote_cache: dict[str, tuple[float, Quote]] = {}
+
+
+def _cached_quote(instrument_id: str) -> Quote | None:
+    entry = _quote_cache.get(instrument_id)
+    if entry is None:
+        return None
+    fetched_at, quote = entry
+    if time.monotonic() - fetched_at > QUOTE_CACHE_TTL_SECONDS:
+        return None
+    return quote
+
+
+def _store_quote(instrument_id: str, quote: Quote) -> None:
+    _quote_cache[instrument_id] = (time.monotonic(), quote)
+
 
 def _with_retries(fn, *, what: str):
     last_exc: Exception | None = None
@@ -84,6 +115,10 @@ def _parse_news_item(item: dict) -> RawNewsItem:
 
 class YFinanceProvider(MarketDataProvider):
     def get_quote(self, instrument_id: str) -> Quote:
+        cached = _cached_quote(instrument_id)
+        if cached is not None:
+            return cached
+
         def _fetch() -> Quote:
             ticker = yf.Ticker(instrument_id)
             price = ticker.fast_info["lastPrice"]
@@ -101,7 +136,9 @@ class YFinanceProvider(MarketDataProvider):
                 as_of=datetime.now(timezone.utc),
             )
 
-        return _with_retries(_fetch, what=f"get_quote({instrument_id})")
+        quote = _with_retries(_fetch, what=f"get_quote({instrument_id})")
+        _store_quote(instrument_id, quote)
+        return quote
 
     def get_historical(self, instrument_id: str, start: date, end: date) -> list[PricePoint]:
         def _fetch() -> list[PricePoint]:

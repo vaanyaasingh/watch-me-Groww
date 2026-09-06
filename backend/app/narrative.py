@@ -62,9 +62,20 @@ def _template_summary(diff: Diff, significance: SignificanceScore) -> str:
         # than forcing the general "driven by {category}" template to
         # cover a non-category.
         return f"{diff.instrument_id} moved {direction} {pct:.1f}% since you last checked, with no significant driver flagged."
+    # The raw category string ("statistical") reads as an internal label,
+    # not a sentence — same human-readable mapping the frontend's own
+    # attention feed already uses for these three categories (see
+    # frontend/app/page.tsx's reasonLabel), kept here too since the
+    # template is what actually ships whenever Gemini is unavailable or
+    # its output fails the advice-language check, not just a rare fallback.
+    category_phrase = {
+        "statistical": "a statistically unusual price move",
+        "threshold": "crossing a key price threshold",
+        "event": "a flagged corporate/market event",
+    }.get(significance.category, significance.category)
     return (
         f"{diff.instrument_id} moved {direction} {pct:.1f}% since you last "
-        f"checked, driven by {significance.category}."
+        f"checked, driven by {category_phrase}."
     )
 
 
