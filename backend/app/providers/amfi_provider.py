@@ -47,5 +47,5 @@ class AMFIProvider(MarketDataProvider):
                 as_of = datetime.strptime(fields[7].strip(), "%d-%b-%Y").date()
             except ValueError:
                 continue  # malformed row (e.g. NAV shown as "N.A.") — keep scanning
-            return FundNav(instrument_id=instrument_id, nav=nav, as_of=as_of)
+            return FundNav(instrument_id=instrument_id, nav=nav, as_of=as_of, scheme_name=fields[3].strip())
         raise InstrumentNotFoundError(instrument_id)

@@ -450,6 +450,11 @@ def list_subscription_windows():
                     "type": instrument.type if instrument else None,
                     "status": window.status,
                     "last_changed_at": window.last_changed_at.isoformat(),
+                    # Both populated by app/subscription_tracker.py's real
+                    # news-derived refresh; null for a row no ingestion run
+                    # has touched yet (still just the seed placeholder).
+                    "scheme_name": window.scheme_name,
+                    "evidence": window.evidence,
                 }
             )
         return result

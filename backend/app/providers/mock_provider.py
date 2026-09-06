@@ -105,4 +105,5 @@ class MockProvider(MarketDataProvider):
             instrument_id=instrument_id,
             nav=record["nav"],
             as_of=self._shift_date(date.fromisoformat(record["as_of"])),
+            scheme_name=record.get("scheme_name"),
         )

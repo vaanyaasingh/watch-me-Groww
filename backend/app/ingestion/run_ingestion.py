@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.alerts import evaluate_alerts
 from app.db import SessionLocal
 from app.diff_engine import compute_diff
 from app.embeddings import EmbeddingProvider, get_embedding_provider
@@ -31,6 +32,7 @@ from app.providers.config import get_market_data_provider
 from app.providers.exceptions import ProviderUnavailableError
 from app.providers.google_news_rss import GoogleNewsRSSProvider
 from app.significance import score_significance
+from app.subscription_tracker import refresh_subscription_window
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,7 @@ class IngestionSummary:
     diffs_created: int = 0
     significance_scores_created: int = 0
     news_items_created: int = 0
+    alerts_triggered: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -282,6 +285,14 @@ def run_ingestion(
             session.add_all(scores)
             summary.significance_scores_created += len(scores)
 
+            try:
+                summary.alerts_triggered += len(evaluate_alerts(session, user_id, instrument.id, diff, scores))
+            except Exception as exc:
+                # An alert-evaluation bug shouldn't cost this user their
+                # already-computed diff/significance for this instrument.
+                logger.warning("alert evaluation failed for user %s / %s: %s", user_id, instrument.id, exc)
+                summary.errors.append(f"{instrument.id} (alerts, user {user_id}): {exc}")
+
         try:
             summary.news_items_created += _ingest_news_for_instrument(
                 session, instrument, provider, google_news_provider, embedding_provider, now
@@ -292,6 +303,12 @@ def run_ingestion(
             # instrument's price/diff/significance work already staged above.
             logger.warning("news ingestion failed for %s: %s", instrument.id, exc)
             summary.errors.append(f"{instrument.id} (news): {exc}")
+
+        try:
+            refresh_subscription_window(session, instrument, provider, google_news_provider, now)
+        except Exception as exc:
+            logger.warning("subscription-window refresh failed for %s: %s", instrument.id, exc)
+            summary.errors.append(f"{instrument.id} (subscription window): {exc}")
 
         # Commit per instrument: one instrument's failure (or the next
         # loop iteration's) never rolls back instruments already ingested

@@ -109,6 +109,11 @@ export type SubscriptionWindowEntry = {
   type: string | null;
   status: "open" | "closing_soon" | "closed" | string;
   last_changed_at: string;
+  // Populated once a real ingestion run has resolved+searched this scheme
+  // (see backend/app/subscription_tracker.py) — null for a row that's
+  // still just the seed-time placeholder.
+  scheme_name: string | null;
+  evidence: string | null;
 };
 
 export type MarketOverviewEntry = {

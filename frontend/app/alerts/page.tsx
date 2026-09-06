@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Avatar } from "@/components/ds/Avatar";
+import { Badge } from "@/components/ds/Badge";
 import { Button } from "@/components/ds/Button";
 import { glassCard } from "@/components/ds/glass";
 import { Switch } from "@/components/ds/Switch";
@@ -120,14 +121,24 @@ function AlertsPageInner() {
           {(alerts ?? []).map((alert) => (
             <div key={alert.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: "var(--radius-md)", ...glassCard }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{alert.instrument_id}</div>
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{alert.instrument_id}</span>
+                  {alert.status === "triggered" && (
+                    // Set by backend/app/alerts.py's evaluate_alerts(), run
+                    // once per ingestion cycle against the real
+                    // Diff/SignificanceScore for this (user, instrument) —
+                    // not a push notification (none is wired up), just a
+                    // visible, checkable fact.
+                    <Badge kind="attention-high">Triggered</Badge>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>
                   {alert.condition.target_price !== null && `Target ₹${alert.condition.target_price}`}
                   {alert.condition.target_price !== null && alert.condition.notify_on_significant_change && " · "}
                   {alert.condition.notify_on_significant_change && "Significant change"}
                 </div>
               </div>
-              <span onClick={() => deleteMutation.mutate(alert.id)} style={{ fontSize: 13, color: "var(--text-tertiary)", cursor: "pointer" }}>
+              <span onClick={() => deleteMutation.mutate(alert.id)} style={{ fontSize: 13, color: "var(--text-tertiary)", cursor: "pointer", fontWeight: 600 }}>
                 Remove
               </span>
             </div>

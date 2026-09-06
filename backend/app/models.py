@@ -159,3 +159,10 @@ class SubscriptionWindow(Base):
     instrument_id: Mapped[str] = mapped_column(ForeignKey("instrument.id"), index=True, unique=True)
     status: Mapped[str] = mapped_column(String)
     last_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Both populated by app/subscription_tracker.py's real, news-derived
+    # refresh (AMFI has no scheme-name-free instrument id a person would
+    # recognize, and "why does it say this" needs to be inspectable rather
+    # than trusted blindly) — nullable since the seed-time placeholder rows
+    # predate that mechanism ever running.
+    scheme_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    evidence: Mapped[str | None] = mapped_column(String, nullable=True)

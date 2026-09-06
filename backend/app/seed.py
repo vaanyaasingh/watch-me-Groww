@@ -83,11 +83,12 @@ def seed_demo_data(session: Session) -> None:
             continue
         session.add(WatchlistItem(user_id=DEMO_USER_ID, instrument_id=instrument_id))
 
-    # Placeholder subscription-window status: no provider in this project
-    # actually sources RBI LRS subscription-window data yet (Feature 6 has
-    # no ingestion path built for it in any prior phase) — these two rows
-    # exist so the tracker view has something real to render, clearly
-    # seeded rather than live-ingested.
+    # Baseline subscription-window rows for before ingestion has run even
+    # once — app/subscription_tracker.py now does the real work (a
+    # scheme-name Google News search, classified by a rule-based regex,
+    # never fabricated) each ingestion cycle for any mutual fund a user is
+    # watching; these two just give the tracker view something to render
+    # on a cold-started instance.
     demo_windows = [
         ("120503", "open"),
         ("119551", "closing_soon"),

@@ -17,14 +17,25 @@ function note(entry: SubscriptionWindowEntry): string {
 
 function Row({ entry }: { entry: SubscriptionWindowEntry }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, borderRadius: "var(--radius-md)", ...glassCard }}>
-      <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: STATUS_DOT[entry.status] ?? "var(--status-closed)" }} />
-      <Avatar label={entry.instrument_id} size="md" shape="square" />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-        <span style={{ fontSize: 14.5, fontWeight: 700 }}>{entry.instrument_id}</span>
-        <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>{note(entry)}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, borderRadius: "var(--radius-md)", ...glassCard }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: STATUS_DOT[entry.status] ?? "var(--status-closed)" }} />
+        <Avatar label={entry.instrument_id} size="md" shape="square" />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+          <span style={{ fontSize: 14.5, fontWeight: 700 }}>{entry.scheme_name ?? entry.instrument_id}</span>
+          <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>{note(entry)}</span>
+        </div>
+        <Badge kind={`status-${entry.status}`}>{STATUS_LABEL[entry.status] ?? entry.status}</Badge>
       </div>
-      <Badge kind={`status-${entry.status}`}>{STATUS_LABEL[entry.status] ?? entry.status}</Badge>
+      {entry.evidence && (
+        // The actual retrieved headline that drove this status — auditable
+        // rather than trust-me (see backend/app/subscription_tracker.py):
+        // real Google News RSS results, classified by a rule-based regex,
+        // never fabricated or LLM-guessed.
+        <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: 0, paddingLeft: 22, fontStyle: "italic" }}>
+          Source: {entry.evidence}
+        </p>
+      )}
     </div>
   );
 }

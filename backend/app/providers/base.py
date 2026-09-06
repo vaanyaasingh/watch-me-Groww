@@ -58,6 +58,12 @@ class FundNav:
     instrument_id: str
     nav: float
     as_of: date
+    # The AMFI-published scheme name (e.g. "HDFC Flexi Cap Fund - Growth")
+    # — AMFI instruments are keyed by numeric scheme code, which nobody
+    # writes news headlines about, so app/subscription_tracker.py needs
+    # this to search Google News meaningfully. Optional/defaulted so
+    # existing callers that only need nav/as_of don't need updating.
+    scheme_name: str | None = None
 
 
 class MarketDataProvider(ABC):

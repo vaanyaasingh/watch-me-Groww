@@ -153,7 +153,37 @@ snapshot to diff against) to see the attention feed and digest populate.
   their own historical prices, then runs the real diff/significance/news
   pipeline against "today" — including real Google News RSS retrieval —
   so the digest/attention-feed views have a genuine story to show without
-  a judge needing to run the ingestion job by hand first.
+  a judge needing to run the ingestion job by hand first. Two features
+  that used to be UI-only now have a real mechanism behind them, both
+  wired into `app/ingestion/run_ingestion.py`'s per-instrument loop:
+  `app/alerts.py`'s `evaluate_alerts()` (Feature 4) checks every active
+  Alert against the Diff/SignificanceScore just computed for that same
+  (user, instrument) pair and flips it to `"triggered"` when its condition
+  is met — before this, an alert could be created and nothing would ever
+  happen no matter how the price moved. Delivery (push/email) stays out of
+  scope deliberately: Firebase Cloud Messaging and SMTP both need real
+  infrastructure (a service worker + VAPID keys, or a provider account)
+  this project doesn't have, so `status` is a checkable fact
+  (`GET /api/alerts`) rather than something pushed at anyone.
+  `app/subscription_tracker.py` (Feature 6) replaces guesswork with a real,
+  checked constraint: no free structured feed for RBI-LRS-driven MF
+  subscription pauses exists (AMFI's NAVAll feed carries no such field,
+  and none was found elsewhere), but AMCs announce them as ordinary
+  headlines, so it reuses the same `GoogleNewsRSSProvider` the price-side
+  news pipeline already depends on — searched by the fund's real AMFI
+  scheme name (now returned by `FundNav.scheme_name`, added to both
+  `MockProvider` and `AMFIProvider`), classified by a small rule-based
+  regex, never an LLM call (the same "rule-based, auditable" bar
+  `docs/SOURCE_OF_TRUTH.md` holds significance scoring to). Its honesty
+  constraint: no matching headline means the existing status is left
+  untouched, never guessed — a domestic fund with no real subscription
+  news correctly shows no change, which is why the two seeded schemes
+  (both domestic) don't visibly flip in a demo even though the mechanism
+  ran; verified instead against real, currently-live headlines about
+  actual RBI-LRS-affected funds (PGIM India's international FoFs) during
+  development. The matched headline itself is stored (`evidence`) and
+  shown in the UI, so "why does it say this" is inspectable, not
+  trust-me.
 - `frontend/` — Next.js App Router UI for all five core screens (attention
   feed, per-instrument digest, watchlist management, alert setup,
   subscription tracker) plus a real Firebase-backed login/profile flow and a NIFTY 50/
@@ -249,12 +279,17 @@ computed at request time), corporate-action exclusion generalized across
 both bonus issues and stock splits, and per-source news-pipeline failure
 isolation (one source failing never discards another source's results for
 the same instrument, nor aborts other instruments in the run). Real
-Firebase Authentication replaces the earlier mock login (see the
-`frontend/` and `app/api.py` layout entries above). 75 backend tests pass,
-including an API-level test (via FastAPI's `TestClient`) proving the
-NSE/BSE disagreement actually reaches the HTTP response, not just the pure
-reconciliation function, and a dedicated auth test suite covering missing/
-invalid tokens and first-call user creation. The frontend has been
-verified by running both dev servers and checking each screen in the
-browser at desktop and mobile widths, not by an automated test suite —
-see `docs/plan.md` §7 for the phase sequence.
+Firebase Authentication replaces the earlier mock login, and Features 4
+and 6 (Adaptive Alerts, Subscription-Window Tracker) moved from UI-only to
+a real evaluated/news-derived mechanism (see the `frontend/` and
+`app/api.py` layout entries above). 97 backend tests pass, including an
+API-level test (via FastAPI's `TestClient`) proving the NSE/BSE
+disagreement actually reaches the HTTP response, not just the pure
+reconciliation function; a dedicated auth test suite covering missing/
+invalid tokens and first-call user creation; and dedicated suites for
+alert evaluation and subscription-window classification, the latter
+verified against real, currently-live news headlines during development,
+not just synthetic fixtures. The frontend has been verified by running
+both dev servers and checking each screen in the browser at desktop and
+mobile widths, not by an automated test suite — see `docs/plan.md` §7 for
+the phase sequence.
