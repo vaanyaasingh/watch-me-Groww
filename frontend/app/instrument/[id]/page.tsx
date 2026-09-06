@@ -6,8 +6,9 @@ import { Avatar } from "@/components/ds/Avatar";
 import { Button } from "@/components/ds/Button";
 import { Chip } from "@/components/ds/Chip";
 import { Freshness } from "@/components/ds/Freshness";
+import { Sparkline } from "@/components/ds/Sparkline";
 import { glassCard } from "@/components/ds/glass";
-import { useAddToWatchlist, useDigest, useRemoveFromWatchlist, useWatchlist } from "@/lib/hooks";
+import { useAddToWatchlist, useDigest, useRemoveFromWatchlist, useSparkline, useWatchlist } from "@/lib/hooks";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -22,6 +23,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
   const instrumentId = decodeURIComponent(params.id);
   const router = useRouter();
   const { data, isLoading, isError } = useDigest(instrumentId);
+  const { data: sparkline } = useSparkline(instrumentId);
   const { data: watchlist } = useWatchlist();
   const addMutation = useAddToWatchlist();
   const removeMutation = useRemoveFromWatchlist();
@@ -58,14 +60,17 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
       <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-5 md:gap-9">
         <div>
           {data.price !== null && (
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={{ fontWeight: 400, fontSize: 30 }}>₹{data.price.toFixed(2)}</span>
-              {data.price_delta_pct !== null && (
-                <span style={{ fontSize: 15, color: positive ? "var(--text-positive)" : "var(--text-negative)" }}>
-                  {positive ? "+" : ""}
-                  {(data.price_delta_pct * 100).toFixed(2)}%
-                </span>
-              )}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontWeight: 400, fontSize: 30 }}>₹{data.price.toFixed(2)}</span>
+                {data.price_delta_pct !== null && (
+                  <span style={{ fontSize: 15, color: positive ? "var(--text-positive)" : "var(--text-negative)" }}>
+                    {positive ? "+" : ""}
+                    {(data.price_delta_pct * 100).toFixed(2)}%
+                  </span>
+                )}
+              </div>
+              {sparkline && sparkline.closes.length > 1 && <Sparkline closes={sparkline.closes} width={120} height={36} />}
             </div>
           )}
 
@@ -140,11 +145,21 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ padding: 14, borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 5, textDecoration: "none", color: "inherit", ...glassCard }}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "var(--radius-md)",
+                    borderLeft: "3px solid var(--accent-info)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 5,
+                    textDecoration: "none",
+                    color: "inherit",
+                    ...glassCard,
+                  }}
                 >
                   <span style={{ fontSize: 14, fontWeight: 500 }}>{item.title}</span>
                   <div style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-tertiary)" }}>
-                    <span>{item.source}</span>
+                    <span style={{ fontWeight: 600, color: "var(--accent-info)" }}>{item.source}</span>
                     <span>·</span>
                     <span>{new Date(item.published_at).toLocaleDateString()}</span>
                   </div>

@@ -1,14 +1,62 @@
 "use client";
 
+import { FirebaseError } from "firebase/app";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ds/Button";
 import { glassCard } from "@/components/ds/glass";
-import { logIn } from "@/lib/auth";
+import { signIn, signUp } from "@/lib/auth";
+
+// Firebase's own error codes, translated to something a person filling out
+// a form actually understands — its default messages ("Firebase: Error
+// (auth/wrong-password).") are implementation detail, not UI copy.
+function friendlyAuthError(error: unknown): string {
+  if (error instanceof FirebaseError) {
+    switch (error.code) {
+      case "auth/email-already-in-use":
+        return "That email already has an account — try signing in instead.";
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Incorrect email or password.";
+      case "auth/weak-password":
+        return "Password must be at least 6 characters.";
+      case "auth/invalid-email":
+        return "That doesn't look like a valid email address.";
+      case "auth/too-many-requests":
+        return "Too many attempts — wait a moment and try again.";
+      default:
+        return `Something went wrong (${error.code}).`;
+    }
+  }
+  return "Something went wrong. Please try again.";
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("demo@example.com");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await signUp(email, password);
+      } else {
+        await signIn(email, password);
+      }
+      router.push("/");
+    } catch (err) {
+      setError(friendlyAuthError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -31,21 +79,42 @@ export default function LoginPage() {
         </p>
 
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            // Mock sign-in only — see lib/auth.ts. No password is checked
-            // against anything real; this just unlocks the demo.
-            logIn();
-            router.push("/");
-          }}
+          onSubmit={handleSubmit}
           style={{ display: "flex", flexDirection: "column", gap: 12, padding: 24, borderRadius: "var(--radius-lg)", ...glassCard, textAlign: "left" }}
         >
+          <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            {(["signin", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setError(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "8px 0",
+                  borderRadius: "var(--radius-md)",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: mode === m ? "var(--ink-0)" : "transparent",
+                  color: mode === m ? "var(--text-inverse)" : "var(--text-secondary)",
+                }}
+              >
+                {m === "signin" ? "Sign in" : "Create account"}
+              </button>
+            ))}
+          </div>
+
           <label style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             Email
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
+              autoComplete="email"
               required
               style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", background: "var(--surface-page)", color: "var(--text-primary)", fontSize: 14 }}
             />
@@ -53,18 +122,28 @@ export default function LoginPage() {
           <label style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             Password
             <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               type="password"
-              defaultValue="demo"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              minLength={6}
               required
               style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", background: "var(--surface-page)", color: "var(--text-primary)", fontSize: 14 }}
             />
           </label>
-          <Button variant="primary" size="lg" fullWidth type="submit">
-            Sign in
+
+          {error && (
+            <p style={{ fontSize: 13, color: "var(--text-negative)", margin: 0 }} role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button variant="primary" size="lg" fullWidth type="submit" disabled={submitting}>
+            {submitting ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
           <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-            Demo mode — any email/password signs you in as the single demo user this project runs on. No real auth is
-            wired up yet (see docs/plan.md §4).
+            Real accounts via Firebase Authentication — your password is never seen by this app's own backend, only
+            Firebase's servers.
           </p>
         </form>
       </div>

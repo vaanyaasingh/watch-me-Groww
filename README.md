@@ -126,7 +126,17 @@ snapshot to diff against) to see the attention feed and digest populate.
   significance-ranked attention feed, per-instrument digest, alerts,
   subscription windows), plus `app/seed.py` seeding the instrument catalog
   (13 equities across 8 sectors, 2 ETFs, 2 MFs — `backend/fixtures/sample_market_data.json`)
-  and a single demo user on startup (no auth system exists yet). Edge-case
+  and a fixed system-anchor user on startup. `app/auth.py` verifies the
+  Firebase ID token every personal route requires (`Depends(get_current_user_id)`)
+  using `google-auth`'s `verify_firebase_token` — no service-account key or
+  Application Default Credentials needed, just Firebase's public certs, so
+  it works identically whether this runs on GCP or (as deployed) Render.
+  It resolves the token to this app's own `User` row by `firebase_uid`,
+  creating one on a person's first authenticated call — there's no
+  separate signup endpoint, Firebase already owns account creation on the
+  frontend. Reference instruments (NIFTY/SENSEX/USD-INR) stay anchored to
+  one fixed system user regardless of who's logged in, since
+  `/api/market-overview` isn't personal to anybody. Edge-case
   hardening lives here too: `app/staleness.py`'s `compute_display_status()`
   recomputes "live"/"stale"/"market_closed" at request time (a snapshot can
   go stale from time passing alone, with no new ingestion event, so this
@@ -146,7 +156,7 @@ snapshot to diff against) to see the attention feed and digest populate.
   a judge needing to run the ingestion job by hand first.
 - `frontend/` — Next.js App Router UI for all five core screens (attention
   feed, per-instrument digest, watchlist management, alert setup,
-  subscription tracker) plus a mock login/profile flow and a NIFTY 50/
+  subscription tracker) plus a real Firebase-backed login/profile flow and a NIFTY 50/
   SENSEX/USD-INR market-overview strip, styled from a Groww design system
   exported via Claude Design (`components/ds/` — Avatar, Badge, Button,
   Chip, Switch — ported from that export's component source;
@@ -167,30 +177,73 @@ snapshot to diff against) to see the attention feed and digest populate.
   under `:root[data-theme="dark"]` rather than branching per component.
   `components/ds/Freshness.tsx` surfaces the staleness/last-checked data
   in every screen that shows a price. `/login` and `/profile`
-  (`lib/auth.ts`, `components/AuthGate.tsx`) are a mock sign-in flow, not
-  real auth — the whole backend still runs on one seeded demo user
-  (Firebase Auth is a later `docs/plan.md` §4 item); this just gives the
-  frontend an actual landing/login/profile experience instead of none.
+  (`lib/auth.ts`, `lib/firebase.ts`, `components/AuthGate.tsx`) are real
+  Firebase Authentication (email/password) — every request `lib/api.ts`
+  makes attaches the signed-in user's ID token as `Authorization: Bearer
+  <token>`, verified server-side by `backend/app/auth.py`, not just a
+  client-side gate. `AuthGate` subscribes to Firebase's auth-state
+  listener rather than checking it once at mount, since a signed-in
+  session restores asynchronously on page load and a one-off check could
+  redirect someone who's actually still logged in.
+  `components/ds/Sparkline.tsx` is a small inline SVG trend line (no
+  charting library — a ~30-point polyline doesn't need one) reading real
+  daily closes from a new `GET /api/instruments/{id}/sparkline` endpoint,
+  which calls the same `MarketDataProvider.get_historical()` the
+  significance engine already uses — a visual, not a second data source.
+  It appears on the market-overview cards, attention-feed rows, and the
+  digest page's price header. That pass also fixed a real dark-mode
+  contrast bug (`Badge`'s "medium" attention/status colors were a
+  hardcoded light-only hex, invisible against a dark card — now a
+  `--amber-50` token like every other status color) and gave list rows
+  (watchlist/feed), hero metrics (market overview), and news items three
+  visually distinct treatments instead of one repeated card style.
 - `docs/` — `plan.md` (product/technical plan) and `SOURCE_OF_TRUTH.md`
   (hard constraints).
 
+## Deploying
+
+Frontend on [Vercel](https://vercel.com) (auto-detects Next.js — import the
+repo, set its root directory to `frontend`), backend on
+[Render](https://render.com) (`render.yaml` at the repo root is a Blueprint
+— New -> Blueprint -> pick this repo), database on
+[Neon](https://neon.tech) (free Postgres).
+
+1. **Firebase** (console.firebase.google.com): add Firebase to the
+   existing `watch-me-groww` GCP project (or create a project), enable
+   **Authentication -> Sign-in method -> Email/Password**, then add a Web
+   App and copy its config into `frontend/.env.local`
+   (see `frontend/.env.example`) and into Vercel's project env vars.
+2. **Neon**: create a project, copy the Postgres connection string.
+3. **Render**: New -> Blueprint -> this repo (reads `render.yaml`). When
+   prompted, set `DATABASE_URL` (from Neon), `GEMINI_API_KEY` (from
+   [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — Render
+   isn't a GCP host, so this replaces the Vertex AI/ADC path used locally),
+   and `FIREBASE_PROJECT_ID` (the Firebase project id from step 1).
+4. **Vercel**: import the repo, root directory `frontend`, add the
+   `NEXT_PUBLIC_FIREBASE_*` vars from step 1 plus
+   `NEXT_PUBLIC_API_BASE_URL` (the Render URL from step 3).
+5. Back on Render, set `ALLOWED_ORIGINS` to the Vercel URL from step 4 (CORS,
+   see `app/main.py`) and redeploy.
+
 ## Status
 
-Through Phase 7: the full stack is wired end-to-end — data model, diff
-engine, rule-based significance scoring, batch ingestion (price + news),
-news retrieval, narrative generation, a REST API, a styled frontend for all
-five screens (responsive down to mobile), and the edge-case pass Feature 5
-(Data Integrity & Corporate Action Layer) actually asks for: market-hours/
-holiday awareness, NSE/BSE reconciliation, stale-vs-closed detection
-(distinct from "market closed", computed at request time), corporate-action
-exclusion generalized across both bonus issues and stock splits, and
-per-source news-pipeline failure isolation (one source failing never
-discards another source's results for the same instrument, nor aborts
-other instruments in the run). 70 backend tests pass, including an
-API-level test (via FastAPI's `TestClient`) proving the NSE/BSE
-disagreement actually reaches the HTTP response, not just the pure
-reconciliation function. The frontend has been verified by running both
-dev servers and checking each screen in the browser at desktop and mobile
-widths, not by an automated test suite. No auth system yet (a single
-seeded demo user stands in for it) — see `docs/plan.md` §7 for the phase
-sequence.
+Through Phase 7 plus a UI/hosting pass: the full stack is wired
+end-to-end — data model, diff engine, rule-based significance scoring,
+batch ingestion (price + news), news retrieval, narrative generation, a
+REST API, a styled frontend for all five screens (responsive down to
+mobile), and the edge-case pass Feature 5 (Data Integrity & Corporate
+Action Layer) actually asks for: market-hours/holiday awareness, NSE/BSE
+reconciliation, stale-vs-closed detection (distinct from "market closed",
+computed at request time), corporate-action exclusion generalized across
+both bonus issues and stock splits, and per-source news-pipeline failure
+isolation (one source failing never discards another source's results for
+the same instrument, nor aborts other instruments in the run). Real
+Firebase Authentication replaces the earlier mock login (see the
+`frontend/` and `app/api.py` layout entries above). 75 backend tests pass,
+including an API-level test (via FastAPI's `TestClient`) proving the
+NSE/BSE disagreement actually reaches the HTTP response, not just the pure
+reconciliation function, and a dedicated auth test suite covering missing/
+invalid tokens and first-call user creation. The frontend has been
+verified by running both dev servers and checking each screen in the
+browser at desktop and mobile widths, not by an automated test suite —
+see `docs/plan.md` §7 for the phase sequence.

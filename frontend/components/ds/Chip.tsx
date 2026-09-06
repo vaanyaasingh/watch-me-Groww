@@ -11,7 +11,7 @@ export function Chip({ children }: { children: React.ReactNode }) {
         fontSize: "var(--text-label)",
         padding: "6px 15px",
         borderRadius: "var(--radius-md)",
-        color: "var(--ink-5)",
+        color: "var(--text-primary)",
         whiteSpace: "nowrap",
         display: "inline-flex",
         ...glassCard,

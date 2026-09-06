@@ -6,3 +6,5 @@ yfinance
 requests
 pgvector
 google-genai
+google-auth
+psycopg2-binary

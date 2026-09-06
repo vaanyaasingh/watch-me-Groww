@@ -3,11 +3,17 @@
 // goes through the React Query hooks in lib/hooks.ts, which call the
 // functions here, so the API base URL and error handling live in one place.
 
+import { getIdToken } from "./auth";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getIdToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...options,
   });
   if (!response.ok) {
@@ -119,6 +125,13 @@ export type Me = {
   watchlist_count: number;
 };
 
+export type SparklinePoint = { date: string; close: number };
+
+export type Sparkline = {
+  instrument_id: string;
+  closes: SparklinePoint[];
+};
+
 export const api = {
   listInstruments: () => request<Instrument[]>("/api/instruments"),
 
@@ -145,4 +158,7 @@ export const api = {
 
   getMarketOverview: () => request<MarketOverviewEntry[]>("/api/market-overview"),
   getMe: () => request<Me>("/api/me"),
+
+  getSparkline: (instrumentId: string) =>
+    request<Sparkline>(`/api/instruments/${encodeURIComponent(instrumentId)}/sparkline`),
 };

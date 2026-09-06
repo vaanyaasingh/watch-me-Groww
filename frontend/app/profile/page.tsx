@@ -22,14 +22,11 @@ export default function ProfilePage() {
             <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{data.watchlist_count} instruments tracked</span>
           </>
         )}
-        <p style={{ fontSize: 11, color: "var(--text-tertiary)", textAlign: "center", marginTop: 4 }}>
-          Single demo user — no real accounts exist yet (Firebase Auth is a later phase, see docs/plan.md §4).
-        </p>
         <Button
           variant="outline"
           size="md"
-          onClick={() => {
-            logOut();
+          onClick={async () => {
+            await logOut();
             router.push("/login");
           }}
         >

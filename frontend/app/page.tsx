@@ -5,11 +5,12 @@ import Link from "next/link";
 import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
 import { Freshness } from "@/components/ds/Freshness";
+import { Sparkline } from "@/components/ds/Sparkline";
 import { glassCard } from "@/components/ds/glass";
 import { MarketOverviewStrip } from "@/components/MarketOverviewStrip";
 import { StockSearch } from "@/components/StockSearch";
 import type { AttentionFeedEntry } from "@/lib/api";
-import { useAttentionFeed } from "@/lib/hooks";
+import { useAttentionFeed, useSparkline } from "@/lib/hooks";
 
 // Named per the Phase 6 brief ("make it a constant, not hardcoded
 // inline") — the backend already truncates to this same number
@@ -36,6 +37,7 @@ function summaryFor(entry: AttentionFeedEntry): string {
 function FeedCard({ entry }: { entry: AttentionFeedEntry }) {
   const level = attentionLevel(entry.rank_score);
   const positive = entry.price_delta_pct >= 0;
+  const { data: sparkline } = useSparkline(entry.instrument_id);
   return (
     <Link
       href={`/instrument/${encodeURIComponent(entry.instrument_id)}`}
@@ -69,6 +71,11 @@ function FeedCard({ entry }: { entry: AttentionFeedEntry }) {
           <Freshness status={entry.status} lastCheckedAt={entry.last_checked_at} />
         </div>
       </div>
+      {sparkline && sparkline.closes.length > 1 && (
+        <div style={{ alignSelf: "center", flexShrink: 0 }}>
+          <Sparkline closes={sparkline.closes} />
+        </div>
+      )}
     </Link>
   );
 }

@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.auth import get_current_user_id
 from app.db import Base
 import app.api as api_module
 import app.main as main_module
@@ -44,8 +45,16 @@ def client(monkeypatch):
     session.commit()
     session.close()
 
-    with TestClient(main_module.app) as test_client:
-        yield test_client
+    # Bypass real Firebase token verification in tests — this test is about
+    # NSE/BSE reconciliation, not auth, so it simulates an already-verified
+    # request for the User(id=1) seeded above via FastAPI's own
+    # dependency-override mechanism rather than a real ID token.
+    main_module.app.dependency_overrides[get_current_user_id] = lambda: 1
+    try:
+        with TestClient(main_module.app) as test_client:
+            yield test_client
+    finally:
+        main_module.app.dependency_overrides.pop(get_current_user_id, None)
 
 
 def test_digest_surfaces_nse_bse_disagreement(client):

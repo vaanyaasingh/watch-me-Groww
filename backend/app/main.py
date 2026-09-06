@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,12 +12,13 @@ app = FastAPI(
     description="Change-detection and attention-ranking layer over a watchlist.",
 )
 
-# Next.js dev server origin only — this is a hackathon demo, not a
-# multi-tenant public API, so a permissive allowlist is simplest and
-# sufficient rather than building out real per-origin config.
+# Next.js dev server origin always allowed; ALLOWED_ORIGINS (comma-separated)
+# adds the deployed frontend's origin (e.g. the Vercel URL) in production —
+# set once that URL is known, without needing a code change to add it.
+_extra_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", *_extra_origins],
     allow_methods=["*"],
     allow_headers=["*"],
 )

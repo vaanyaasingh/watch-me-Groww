@@ -31,18 +31,25 @@ from app.significance import score_significance
 # Picked for a mix of significance categories and because they're large,
 # frequently-covered companies with real Google News RSS results — not the
 # full catalog, so the demo stays legible rather than a wall of numbers.
-# Reference instruments (NIFTY 50/SENSEX/USD-INR) are included too so
-# /api/market-overview has a real price+delta to show, not nulls.
-DEMO_SCENARIO_INSTRUMENTS = ["RELIANCE.NS", "HDFCBANK.NS", "TCS.NS", "ICICIBANK.NS", *REFERENCE_INSTRUMENT_IDS]
+# Reference instruments (NIFTY 50/SENSEX/USD-INR) are seeded separately,
+# always under the fixed system user (see the owner-selection loop below),
+# since /api/market-overview isn't per-user and reads that one account.
+DEMO_SCENARIO_INSTRUMENTS = ["RELIANCE.NS", "HDFCBANK.NS", "TCS.NS", "ICICIBANK.NS"]
 
 DAYS_AGO_LAST_CHECKED = 4
 
 
 def seed_demo_scenario(
     session: Session,
+    user_id: int = DEMO_USER_ID,
     provider: MarketDataProvider | None = None,
     now: datetime | None = None,
 ) -> dict:
+    """user_id is whichever real, authenticated person clicked "populate
+    demo data" (app/api.py's post_seed_demo_scenario) — defaults to
+    DEMO_USER_ID only for direct/test callers that don't have a real user in
+    play. Reference instruments always seed under DEMO_USER_ID regardless,
+    since they're shared market data, not personal to whoever asked."""
     provider = provider or get_market_data_provider()
     now = now or datetime.utcnow()
     google_news_provider = GoogleNewsRSSProvider()
@@ -50,18 +57,22 @@ def seed_demo_scenario(
 
     result = {"instruments_seeded": [], "instruments_skipped": [], "errors": []}
 
-    for instrument_id in DEMO_SCENARIO_INSTRUMENTS:
+    owned_instruments = [(instrument_id, user_id) for instrument_id in DEMO_SCENARIO_INSTRUMENTS] + [
+        (instrument_id, DEMO_USER_ID) for instrument_id in REFERENCE_INSTRUMENT_IDS
+    ]
+
+    for instrument_id, owner_id in owned_instruments:
         instrument = session.get(Instrument, instrument_id)
         if instrument is None:
             result["instruments_skipped"].append(f"{instrument_id} (not in catalog)")
             continue
 
-        if session.query(WatchlistItem).filter_by(user_id=DEMO_USER_ID, instrument_id=instrument_id).first() is None:
-            session.add(WatchlistItem(user_id=DEMO_USER_ID, instrument_id=instrument_id))
+        if session.query(WatchlistItem).filter_by(user_id=owner_id, instrument_id=instrument_id).first() is None:
+            session.add(WatchlistItem(user_id=owner_id, instrument_id=instrument_id))
             session.commit()
 
         already_seeded = (
-            session.query(Snapshot).filter_by(instrument_id=instrument_id, user_id=DEMO_USER_ID).first()
+            session.query(Snapshot).filter_by(instrument_id=instrument_id, user_id=owner_id).first()
         )
         if already_seeded is not None:
             result["instruments_skipped"].append(f"{instrument_id} (already has snapshot history)")
@@ -79,7 +90,7 @@ def seed_demo_scenario(
 
             prior_snapshot = Snapshot(
                 instrument_id=instrument_id,
-                user_id=DEMO_USER_ID,
+                user_id=owner_id,
                 captured_at=last_checked_at,
                 price=prior_price,
                 status="live",
@@ -93,7 +104,7 @@ def seed_demo_scenario(
             )
             current_snapshot = Snapshot(
                 instrument_id=instrument_id,
-                user_id=DEMO_USER_ID,
+                user_id=owner_id,
                 captured_at=now,
                 price=quote.price,
                 ratios=quote.ratios,

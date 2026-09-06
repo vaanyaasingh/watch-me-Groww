@@ -15,6 +15,7 @@
   --red-50: #fdeaea;
   --red-500: #f35d5d;
   --red-600: #e04a4a;
+  --amber-50: #fdf3e4;
   --amber-500: #e8a33d;
   --ink-0: #000000;
   --ink-1: #1e1e1e;
@@ -137,6 +138,7 @@
   --gray-300: #33343d;
   --green-50: rgba(0, 179, 134, 0.16);
   --red-50: rgba(243, 93, 93, 0.16);
+  --amber-50: rgba(232, 163, 61, 0.18);
   --glass-bg: rgba(32, 33, 40, 0.55);
   --glass-bg-strong: rgba(32, 33, 40, 0.72);
   --glass-border: rgba(255, 255, 255, 0.08);

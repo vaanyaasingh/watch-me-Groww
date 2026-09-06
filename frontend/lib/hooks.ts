@@ -76,3 +76,12 @@ export function useMarketOverview() {
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: api.getMe });
 }
+
+export function useSparkline(instrumentId: string) {
+  return useQuery({
+    queryKey: ["sparkline", instrumentId],
+    queryFn: () => api.getSparkline(instrumentId),
+    enabled: Boolean(instrumentId),
+    staleTime: 5 * 60 * 1000,
+  });
+}

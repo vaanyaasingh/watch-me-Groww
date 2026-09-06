@@ -4,19 +4,23 @@ job and future callers use directly. This is that first caller: a thin
 HTTP layer over app/significance.py, app/news_retrieval.py, and
 app/narrative.py, adding no business logic of its own.
 
-No auth system exists yet (Firebase Auth is a later docs/plan.md §4 item)
-— every route operates on app/seed.py's single DEMO_USER_ID rather than a
-real per-session identity. Swapping in real auth later only touches this
-file's user-resolution, not the frontend's shape or any other module.
+Real auth (app/auth.py, Firebase ID token verification) resolves every
+personal route's user_id via Depends(get_current_user_id) rather than the
+old hardcoded app.seed.DEMO_USER_ID. DEMO_USER_ID still exists as the fixed
+anchor for reference-instrument (NIFTY/SENSEX/USD-INR) snapshots — those
+aren't personal to any one person, so /api/market-overview stays
+unauthenticated and keyed to that one system account regardless of who's
+logged in (see app/seed.py's REFERENCE_INSTRUMENT_IDS comment).
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.auth import get_current_user_id
 from app.db import SessionLocal
 from app.models import (
     Alert,
@@ -31,6 +35,7 @@ from app.models import (
 from app.demo_seed import seed_demo_scenario
 from app.narrative import generate_digest
 from app.news_retrieval import get_relevant_news
+from app.providers.config import get_market_data_provider
 from app.reconciliation import reconcile_exchange_prices
 from app.seed import DEMO_USER_ID, REFERENCE_INSTRUMENT_IDS
 from app.staleness import compute_display_status
@@ -119,6 +124,33 @@ def list_instruments():
         session.close()
 
 
+# Days of daily closes returned by the sparkline endpoint below — enough to
+# read as a trend line without turning into a full chart.
+SPARKLINE_LOOKBACK_DAYS = 30
+
+
+@router.get("/instruments/{instrument_id}/sparkline")
+def get_sparkline(instrument_id: str):
+    """Daily closes for the trailing SPARKLINE_LOOKBACK_DAYS, straight from
+    the MarketDataProvider's get_historical() — the same OHLCV data the
+    significance engine already reads, just for a lightweight visual
+    instead of a scoring input. Mutual funds (numeric ids) have no daily
+    OHLCV history in this provider shape, so this only serves equities/ETFs/
+    reference instruments; the frontend skips rendering a sparkline when the
+    list comes back empty."""
+    provider = get_market_data_provider()
+    end = date.today()
+    start = end - timedelta(days=SPARKLINE_LOOKBACK_DAYS)
+    try:
+        bars = provider.get_historical(instrument_id, start, end)
+    except Exception:
+        return {"instrument_id": instrument_id, "closes": []}
+    return {
+        "instrument_id": instrument_id,
+        "closes": [{"date": bar.date.isoformat(), "close": bar.close} for bar in bars],
+    }
+
+
 # --- Watchlist management (Feature: watchlist itself, underlies everything) ---
 
 
@@ -127,20 +159,20 @@ class AddWatchlistItem(BaseModel):
 
 
 @router.get("/watchlist")
-def get_watchlist():
+def get_watchlist(user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         now = _now_ist()
         stmt = select(WatchlistItem).where(
-            WatchlistItem.user_id == DEMO_USER_ID,
+            WatchlistItem.user_id == user_id,
             WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
         )
         items = session.scalars(stmt).all()
         result = []
         for item in items:
             instrument = session.get(Instrument, item.instrument_id)
-            snapshot = _latest_snapshot(session, item.instrument_id, DEMO_USER_ID)
-            diff = _latest_diff(session, item.instrument_id, DEMO_USER_ID)
+            snapshot = _latest_snapshot(session, item.instrument_id, user_id)
+            diff = _latest_diff(session, item.instrument_id, user_id)
             result.append(
                 {
                     "instrument_id": item.instrument_id,
@@ -163,19 +195,19 @@ def get_watchlist():
 
 
 @router.post("/watchlist", status_code=201)
-def add_to_watchlist(payload: AddWatchlistItem):
+def add_to_watchlist(payload: AddWatchlistItem, user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         if session.get(Instrument, payload.instrument_id) is None:
             raise HTTPException(status_code=404, detail=f"Unknown instrument {payload.instrument_id!r}")
         existing = session.scalar(
             select(WatchlistItem).where(
-                WatchlistItem.user_id == DEMO_USER_ID,
+                WatchlistItem.user_id == user_id,
                 WatchlistItem.instrument_id == payload.instrument_id,
             )
         )
         if existing is None:
-            session.add(WatchlistItem(user_id=DEMO_USER_ID, instrument_id=payload.instrument_id))
+            session.add(WatchlistItem(user_id=user_id, instrument_id=payload.instrument_id))
             session.commit()
         return {"instrument_id": payload.instrument_id}
     finally:
@@ -183,11 +215,11 @@ def add_to_watchlist(payload: AddWatchlistItem):
 
 
 @router.delete("/watchlist/{instrument_id}", status_code=204)
-def remove_from_watchlist(instrument_id: str):
+def remove_from_watchlist(instrument_id: str, user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         stmt = select(WatchlistItem).where(
-            WatchlistItem.user_id == DEMO_USER_ID, WatchlistItem.instrument_id == instrument_id
+            WatchlistItem.user_id == user_id, WatchlistItem.instrument_id == instrument_id
         )
         for item in session.scalars(stmt):
             session.delete(item)
@@ -201,13 +233,13 @@ def remove_from_watchlist(instrument_id: str):
 
 
 @router.get("/attention-feed")
-def get_attention_feed():
+def get_attention_feed(user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         now = _now_ist()
         watched = session.scalars(
             select(WatchlistItem).where(
-                WatchlistItem.user_id == DEMO_USER_ID,
+                WatchlistItem.user_id == user_id,
                 WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
             )
         ).all()
@@ -215,7 +247,7 @@ def get_attention_feed():
         ranked = []
         for item in watched:
             instrument = session.get(Instrument, item.instrument_id)
-            diff = _latest_diff(session, item.instrument_id, DEMO_USER_ID)
+            diff = _latest_diff(session, item.instrument_id, user_id)
             if diff is None:
                 continue  # nothing to rank yet — no diff has ever been computed for this instrument
             scores = _significance_for_diff(session, diff.id)
@@ -248,7 +280,7 @@ def get_attention_feed():
 
 
 @router.get("/instruments/{instrument_id}/digest")
-def get_digest(instrument_id: str):
+def get_digest(instrument_id: str, user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         now = _now_ist()
@@ -256,8 +288,8 @@ def get_digest(instrument_id: str):
         if instrument is None:
             raise HTTPException(status_code=404, detail=f"Unknown instrument {instrument_id!r}")
 
-        snapshot = _latest_snapshot(session, instrument_id, DEMO_USER_ID)
-        diff = _latest_diff(session, instrument_id, DEMO_USER_ID)
+        snapshot = _latest_snapshot(session, instrument_id, user_id)
+        diff = _latest_diff(session, instrument_id, user_id)
 
         # Phase 7 requirement 2: NSE/BSE disagreement. Only equities/ETFs
         # have a dual-exchange counterpart at all; only surfaced when both
@@ -265,7 +297,7 @@ def get_digest(instrument_id: str):
         exchange_reconciliation = None
         counterpart_id = _exchange_counterpart(instrument_id)
         if counterpart_id is not None:
-            counterpart_snapshot = _latest_snapshot(session, counterpart_id, DEMO_USER_ID)
+            counterpart_snapshot = _latest_snapshot(session, counterpart_id, user_id)
             if snapshot is not None and counterpart_snapshot is not None:
                 nse_price, bse_price = (
                     (snapshot.price, counterpart_snapshot.price)
@@ -344,10 +376,10 @@ class CreateAlert(BaseModel):
 
 
 @router.get("/alerts")
-def list_alerts():
+def list_alerts(user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
-        stmt = select(Alert).where(Alert.user_id == DEMO_USER_ID)
+        stmt = select(Alert).where(Alert.user_id == user_id)
         return [
             {
                 "id": a.id,
@@ -362,7 +394,7 @@ def list_alerts():
 
 
 @router.post("/alerts", status_code=201)
-def create_alert(payload: CreateAlert):
+def create_alert(payload: CreateAlert, user_id: int = Depends(get_current_user_id)):
     if payload.target_price is None and not payload.notify_on_significant_change:
         raise HTTPException(
             status_code=400,
@@ -380,7 +412,7 @@ def create_alert(payload: CreateAlert):
             "target_price": payload.target_price,
             "notify_on_significant_change": payload.notify_on_significant_change,
         }
-        alert = Alert(user_id=DEMO_USER_ID, instrument_id=payload.instrument_id, condition=condition)
+        alert = Alert(user_id=user_id, instrument_id=payload.instrument_id, condition=condition)
         session.add(alert)
         session.commit()
         return {"id": alert.id, "instrument_id": alert.instrument_id, "condition": alert.condition}
@@ -389,11 +421,11 @@ def create_alert(payload: CreateAlert):
 
 
 @router.delete("/alerts/{alert_id}", status_code=204)
-def delete_alert(alert_id: int):
+def delete_alert(alert_id: int, user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
         alert = session.get(Alert, alert_id)
-        if alert is not None and alert.user_id == DEMO_USER_ID:
+        if alert is not None and alert.user_id == user_id:
             session.delete(alert)
             session.commit()
         return None
@@ -453,21 +485,21 @@ def get_market_overview():
         session.close()
 
 
-# --- Current user (profile page; no real auth yet — see module docstring) ---
+# --- Current user (profile page) ---
 
 
 @router.get("/me")
-def get_me():
+def get_me(user_id: int = Depends(get_current_user_id)):
     session = SessionLocal()
     try:
-        user = session.get(User, DEMO_USER_ID)
+        user = session.get(User, user_id)
         if user is None:
-            raise HTTPException(status_code=404, detail="Demo user not seeded yet")
+            raise HTTPException(status_code=404, detail="User not found")
         count = len(
             list(
                 session.scalars(
                     select(WatchlistItem).where(
-                        WatchlistItem.user_id == DEMO_USER_ID,
+                        WatchlistItem.user_id == user_id,
                         WatchlistItem.instrument_id.not_in(REFERENCE_INSTRUMENT_IDS),
                     )
                 )
@@ -482,15 +514,19 @@ def get_me():
 
 
 @router.post("/admin/seed-demo-scenario")
-def post_seed_demo_scenario():
+def post_seed_demo_scenario(user_id: int = Depends(get_current_user_id)):
     """Populates a realistic "since you last checked N days ago" story
     (real historical prices, real significance scoring, real retrieved
     news) for a handful of instruments, so the digest/attention-feed views
     have something genuine to show without a judge needing to run the
     ingestion job by hand first. Safe to call more than once — instruments
-    that already have snapshot history are left alone."""
+    that already have snapshot history are left alone. Seeds the personal
+    story instruments under whichever real, authenticated user calls this
+    (each person who logs in and clicks "populate demo data" gets their own
+    copy); reference instruments (NIFTY/SENSEX/USD-INR) still seed under
+    the fixed system anchor since /api/market-overview isn't per-user."""
     session = SessionLocal()
     try:
-        return seed_demo_scenario(session)
+        return seed_demo_scenario(session, user_id=user_id)
     finally:
         session.close()

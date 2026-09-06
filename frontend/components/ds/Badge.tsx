@@ -1,10 +1,10 @@
 // Ported from kit/components/core/Badge.jsx.
 const KINDS: Record<string, { background: string; color: string }> = {
   "attention-high": { background: "var(--red-50)", color: "var(--attention-high)" },
-  "attention-medium": { background: "#fdf3e4", color: "var(--attention-medium)" },
+  "attention-medium": { background: "var(--amber-50)", color: "var(--attention-medium)" },
   "attention-low": { background: "var(--green-50)", color: "var(--attention-low)" },
   "status-open": { background: "var(--green-50)", color: "var(--status-open)" },
-  "status-closing": { background: "#fdf3e4", color: "var(--status-closing)" },
+  "status-closing": { background: "var(--amber-50)", color: "var(--status-closing)" },
   "status-closed": { background: "var(--gray-100)", color: "var(--status-closed)" },
   neutral: { background: "var(--surface-chip)", color: "var(--text-secondary)" },
 };
@@ -27,6 +27,7 @@ export function Badge({ kind = "neutral", children }: { kind?: string; children:
         ...k,
       }}
     >
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
       {children}
     </span>
   );

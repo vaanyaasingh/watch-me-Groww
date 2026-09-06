@@ -1,0 +1,41 @@
+# Render Blueprint for the backend only (backend/README section "Hosting").
+# The frontend deploys separately on Vercel, which auto-detects Next.js —
+# no blueprint file needed there, just set its root directory to `frontend`
+# when importing the repo.
+#
+# To use: Render dashboard -> New -> Blueprint -> pick this repo. Render
+# reads this file and creates the service below; env vars marked
+# `sync: false` are prompted for at creation time (never stored in this
+# file, since GEMINI_API_KEY/DATABASE_URL are secrets) — see backend/.env.example
+# for what each one is.
+services:
+  - type: web
+    name: smart-market-watchlist-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # alembic upgrade head first: Render's filesystem is ephemeral between
+    # deploys, so migrations must (re-)run against the real (Neon) database
+    # on every deploy, not just once by hand.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: MARKET_DATA_PROVIDER
+        value: mock
+      - key: EMBEDDING_PROVIDER
+        value: gemini
+      - key: NARRATIVE_PROVIDER
+        value: gemini
+      # Render isn't a GCP host, so there's no Application Default
+      # Credentials for Vertex AI here — GEMINI_API_KEY is the path that
+      # actually works off-GCP (see .env.example). Leave GOOGLE_CLOUD_PROJECT
+      # unset in this environment so the code picks the API-key path.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
