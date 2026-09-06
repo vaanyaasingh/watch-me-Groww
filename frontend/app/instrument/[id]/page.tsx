@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ds/Avatar";
 import { Button } from "@/components/ds/Button";
 import { Chip } from "@/components/ds/Chip";
 import { Freshness } from "@/components/ds/Freshness";
+import { LoadingNotice } from "@/components/ds/LoadingNotice";
 import { Sparkline } from "@/components/ds/Sparkline";
 import { glassCard } from "@/components/ds/glass";
 import { useAddToWatchlist, useDigest, useRemoveFromWatchlist, useSparkline, useWatchlist } from "@/lib/hooks";
@@ -30,7 +31,7 @@ export default function InstrumentDigestPage({ params }: { params: { id: string 
 
   const isWatched = (watchlist ?? []).some((w) => w.instrument_id === instrumentId);
 
-  if (isLoading) return <p style={{ color: "var(--text-tertiary)" }}>Loading digest…</p>;
+  if (isLoading) return <LoadingNotice label="Loading digest…" />;
   if (isError || !data) return <p style={{ color: "var(--text-negative)" }}>Couldn't load this instrument's digest.</p>;
 
   const positive = (data.price_delta_pct ?? 0) >= 0;

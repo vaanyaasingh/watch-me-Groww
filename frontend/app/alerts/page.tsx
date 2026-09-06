@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
 import { Button } from "@/components/ds/Button";
+import { LoadingNotice } from "@/components/ds/LoadingNotice";
 import { glassCard } from "@/components/ds/glass";
 import { Switch } from "@/components/ds/Switch";
 import { useAlerts, useCreateAlert, useDeleteAlert, useWatchlist } from "@/lib/hooks";
@@ -115,7 +116,7 @@ function AlertsPageInner() {
 
       <div style={{ marginTop: 32 }}>
         <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-secondary)" }}>Existing alerts</span>
-        {isLoading && <p style={{ color: "var(--text-tertiary)", fontSize: 13 }}>Loading…</p>}
+        {isLoading && <LoadingNotice label="Loading…" />}
         {alerts && alerts.length === 0 && <p style={{ color: "var(--text-tertiary)", fontSize: 13 }}>No alerts set up yet.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           {(alerts ?? []).map((alert) => (

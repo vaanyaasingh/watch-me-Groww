@@ -2,6 +2,7 @@
 
 import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
+import { LoadingNotice } from "@/components/ds/LoadingNotice";
 import { glassCard } from "@/components/ds/glass";
 import type { SubscriptionWindowEntry } from "@/lib/api";
 import { useSubscriptionWindows } from "@/lib/hooks";
@@ -50,7 +51,7 @@ export default function SubscriptionWindowsPage() {
         <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{(data ?? []).length} tracked</span>
       </div>
 
-      {isLoading && <p style={{ color: "var(--text-tertiary)" }}>Loading subscription windows…</p>}
+      {isLoading && <LoadingNotice label="Loading subscription windows…" />}
       {isError && <p style={{ color: "var(--text-negative)" }}>Couldn't load subscription windows.</p>}
       {data && data.length === 0 && <p style={{ color: "var(--text-tertiary)", fontSize: 14 }}>Nothing tracked yet.</p>}
 

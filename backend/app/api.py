@@ -56,6 +56,24 @@ def _now_ist() -> datetime:
     return datetime.now(IST).replace(tzinfo=None)
 
 
+def _live_price(instrument: Instrument) -> float | None:
+    """A snapshot-free fallback: an instrument can be opened the moment
+    it's added to a watchlist, before any ingestion run has ever
+    snapshotted it for this user. There's no "since you last checked"
+    diff yet in that case (needs two points over time), but the *current*
+    price doesn't — this fetches it live rather than leaving the price
+    permanently blank until someone happens to run ingestion. Best-effort:
+    an unknown ticker or a provider hiccup here just means no price shows,
+    same as before this existed."""
+    try:
+        provider = get_market_data_provider()
+        if instrument.type == "mf":
+            return provider.get_fund_nav(instrument.id).nav
+        return provider.get_quote(instrument.id).price
+    except Exception:
+        return None
+
+
 def _exchange_counterpart(instrument_id: str) -> str | None:
     """"RELIANCE.NS" <-> "RELIANCE.BO" — the other exchange listing of the
     same company, if this project's Instrument catalog has both. Used by
@@ -173,19 +191,33 @@ def get_watchlist(user_id: int = Depends(get_current_user_id)):
             instrument = session.get(Instrument, item.instrument_id)
             snapshot = _latest_snapshot(session, item.instrument_id, user_id)
             diff = _latest_diff(session, item.instrument_id, user_id)
+
+            price = snapshot.price if snapshot else None
+            status = compute_display_status(snapshot.captured_at, now) if snapshot else None
+            last_checked_at = snapshot.captured_at.isoformat() if snapshot else None
+            # Same reasoning as the digest endpoint (_live_price): a
+            # freshly-added instrument has no snapshot yet, but there's no
+            # reason its price should show as blank until an ingestion run
+            # happens to pick it up.
+            if snapshot is None and instrument is not None:
+                price = _live_price(instrument)
+                if price is not None:
+                    status = "live"
+                    last_checked_at = now.isoformat()
+
             result.append(
                 {
                     "instrument_id": item.instrument_id,
                     "type": instrument.type if instrument else None,
                     "sector": instrument.sector if instrument else None,
-                    "price": snapshot.price if snapshot else None,
+                    "price": price,
                     # Recomputed at request time (Phase 7 requirement 3:
                     # stale-vs-closed) rather than returning the raw
                     # ingestion-time Snapshot.status — a snapshot that was
                     # "live" when captured can still go stale just from
                     # time passing, with no new ingestion event.
-                    "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
-                    "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
+                    "status": status,
+                    "last_checked_at": last_checked_at,
                     "price_delta_pct": diff.price_delta_pct if diff else None,
                 }
             )
@@ -315,18 +347,27 @@ def get_digest(instrument_id: str, user_id: int = Depends(get_current_user_id)):
                 }
 
         if diff is None:
+            live_price = snapshot.price if snapshot else None
+            live_status = compute_display_status(snapshot.captured_at, now) if snapshot else None
+            live_last_checked_at = snapshot.captured_at.isoformat() if snapshot else None
+            if snapshot is None:
+                live_price = _live_price(instrument)
+                if live_price is not None:
+                    live_status = "live"
+                    live_last_checked_at = now.isoformat()
+
             return {
                 "instrument_id": instrument_id,
                 "narrative": "No prior snapshot to compare against yet — check back after this "
                 "instrument has been tracked for at least one more ingestion cycle.",
-                "price": snapshot.price if snapshot else None,
+                "price": live_price,
                 "price_delta_pct": None,
                 "volume_delta_pct": None,
                 "ratio_deltas": {},
                 "significance": [],
                 "news": [],
-                "status": compute_display_status(snapshot.captured_at, now) if snapshot else None,
-                "last_checked_at": snapshot.captured_at.isoformat() if snapshot else None,
+                "status": live_status,
+                "last_checked_at": live_last_checked_at,
                 "exchange_reconciliation": exchange_reconciliation,
             }
 

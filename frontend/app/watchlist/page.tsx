@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ds/Avatar";
 import { Freshness } from "@/components/ds/Freshness";
+import { LoadingNotice } from "@/components/ds/LoadingNotice";
 import { glassCard } from "@/components/ds/glass";
 import { useAddToWatchlist, useInstruments, useRemoveFromWatchlist, useWatchlist } from "@/lib/hooks";
 
@@ -70,7 +71,7 @@ export default function WatchlistPage() {
         )}
       </div>
 
-      {isLoading && <p style={{ color: "var(--text-tertiary)" }}>Loading watchlist…</p>}
+      {isLoading && <LoadingNotice label="Loading watchlist…" />}
       {watchlist && watchlist.length === 0 && <p style={{ color: "var(--text-tertiary)", fontSize: 14 }}>Your watchlist is empty — search above to add one.</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 10 }}>

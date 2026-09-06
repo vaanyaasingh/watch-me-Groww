@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Smart Market Watchlist",
+  title: "watch-me-Groww",
   description: "Since-you-last-checked digests and significance-ranked alerts for your watchlist.",
 };
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ds/Avatar";
 import { Badge } from "@/components/ds/Badge";
 import { Freshness } from "@/components/ds/Freshness";
+import { LoadingNotice } from "@/components/ds/LoadingNotice";
 import { Sparkline } from "@/components/ds/Sparkline";
 import { glassCard } from "@/components/ds/glass";
 import { MarketOverviewStrip } from "@/components/MarketOverviewStrip";
@@ -105,7 +106,7 @@ export default function AttentionFeedPage() {
         <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Ranked by significance, not alphabetically</span>
       </div>
 
-      {isLoading && <p style={{ color: "var(--text-tertiary)" }}>Loading your attention feed…</p>}
+      {isLoading && <LoadingNotice label="Loading your attention feed…" />}
       {isError && <p style={{ color: "var(--text-negative)" }}>Couldn't load the attention feed.</p>}
 
       {data && data.top.length === 0 && data.collapsed.length === 0 && (

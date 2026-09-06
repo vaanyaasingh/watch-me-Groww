@@ -31,7 +31,7 @@ export function NavBar() {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontWeight: 800, fontSize: 15, fontFamily: "var(--font-display)", color: "#fff", letterSpacing: "-0.2px", whiteSpace: "nowrap" }}>
-          Smart Market Watchlist
+          watch-me-Groww
         </span>
         <DarkModeToggle />
       </div>

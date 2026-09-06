@@ -72,7 +72,7 @@ export default function LoginPage() {
     >
       <div style={{ maxWidth: 420, width: "100%" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, letterSpacing: "-0.4px", marginBottom: 8 }}>
-          Smart Market Watchlist
+          watch-me-Groww
         </h1>
         <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 32 }}>
           Know what actually changed since you last checked — not another price ticker.

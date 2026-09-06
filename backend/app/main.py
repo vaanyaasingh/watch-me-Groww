@@ -8,7 +8,7 @@ from app.db import SessionLocal
 from app.seed import seed_demo_data
 
 app = FastAPI(
-    title="Smart Market Watchlist API",
+    title="watch-me-Groww API",
     description="Change-detection and attention-ranking layer over a watchlist.",
 )
 
