@@ -86,7 +86,18 @@ def seed_demo_scenario(
             historical = provider.get_historical(
                 instrument_id, last_checked_at.date() - timedelta(days=10), last_checked_at.date()
             )
-            prior_price = historical[-1].close if historical else provider.get_quote(instrument_id).price
+            # The OLDEST bar in this window, not the newest: MockProvider's
+            # fixture sets each instrument's "quote" (the "current" price
+            # below) equal to its own last historical close, by convention
+            # (a static fixture's "live price" naturally is its most recent
+            # bar) — so historical[-1] here is frequently that exact same
+            # bar, silently producing a real-but-guaranteed 0.00% diff on
+            # every run regardless of the real day-to-day prices this
+            # fixture actually has. historical[0] is far enough back in the
+            # window to reliably differ, without needing to fabricate or
+            # scale anything — still a real, unmodified point from this
+            # instrument's own series.
+            prior_price = historical[0].close if historical else provider.get_quote(instrument_id).price
 
             prior_snapshot = Snapshot(
                 instrument_id=instrument_id,
