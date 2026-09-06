@@ -26,13 +26,21 @@ from app.db import SessionLocal
 from app.diff_engine import compute_diff
 from app.embeddings import EmbeddingProvider, get_embedding_provider
 from app.market_calendar import is_market_open
-from app.models import Instrument, NewsItem, Snapshot, WatchlistItem
+from app.models import Diff, Instrument, NewsItem, Snapshot, WatchlistItem
 from app.providers.base import MarketDataProvider, RawNewsItem
 from app.providers.config import get_market_data_provider
 from app.providers.exceptions import ProviderUnavailableError
 from app.providers.google_news_rss import GoogleNewsRSSProvider
+from app.seed import DEMO_USER_ID, REFERENCE_INSTRUMENT_IDS
 from app.significance import score_significance
 from app.subscription_tracker import refresh_subscription_window
+
+# NIFTY 50 stands in for "the market" for every equity's relative/peer
+# significance check (Category 4, app/significance.py) — always anchored
+# to the fixed system user, same as every other reference instrument,
+# since the index's own move isn't personal to whoever's watchlist we're
+# scoring (see app/seed.py's REFERENCE_INSTRUMENT_IDS comment).
+INDEX_INSTRUMENT_ID = "^NSEI"
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +94,21 @@ def _latest_snapshot(session: Session, instrument_id: str, user_id: int) -> Snap
         select(Snapshot)
         .where(Snapshot.instrument_id == instrument_id, Snapshot.user_id == user_id)
         .order_by(Snapshot.captured_at.desc())
+        .limit(1)
+    )
+    return session.scalars(stmt).first()
+
+
+def _latest_diff(session: Session, instrument_id: str, user_id: int) -> Diff | None:
+    """Used for NIFTY 50's own most recent Diff (Category 4's index_diff,
+    see score_significance's call site below) — same query shape as
+    app/api.py's own _latest_diff, kept separate rather than shared since
+    this module and the API layer don't otherwise import from each other."""
+    stmt = (
+        select(Diff)
+        .join(Snapshot, Diff.snapshot_after_id == Snapshot.id)
+        .where(Diff.instrument_id == instrument_id, Snapshot.user_id == user_id)
+        .order_by(Diff.created_at.desc())
         .limit(1)
     )
     return session.scalars(stmt).first()
@@ -242,6 +265,15 @@ def run_ingestion(
     google_news_provider = google_news_provider or GoogleNewsRSSProvider()
     embedding_provider = embedding_provider or get_embedding_provider()
 
+    # Fetched once per run, not per instrument/user: NIFTY 50's own most
+    # recent Diff (from whenever it was last ingested — this run's own
+    # ^NSEI diff isn't computed yet at this point, since it's just another
+    # instrument in the loop below) stands in for "the market" for every
+    # other equity's relative significance check. None on a fresh instance
+    # that's never ingested NIFTY yet — every instrument just scores three
+    # categories instead of four until it has.
+    index_diff = _latest_diff(session, INDEX_INSTRUMENT_ID, DEMO_USER_ID)
+
     summary = IngestionSummary(market_open=True, instruments_seen=len(instruments))
 
     for instrument in instruments:
@@ -281,7 +313,18 @@ def run_ingestion(
             session.flush()  # assigns diff.id, needed by SignificanceScore
             summary.diffs_created += 1
 
-            scores = score_significance(diff, instrument, historical, prior, new_snapshot)
+            # Reference instruments (NIFTY/SENSEX/USD-INR) never get
+            # compared against NIFTY 50 — that's either meaningless (NIFTY
+            # vs itself) or out of scope (SENSEX/USD-INR aren't equities
+            # NIFTY is a peer benchmark for).
+            scores = score_significance(
+                diff,
+                instrument,
+                historical,
+                prior,
+                new_snapshot,
+                index_diff=index_diff if instrument.id not in REFERENCE_INSTRUMENT_IDS else None,
+            )
             session.add_all(scores)
             summary.significance_scores_created += len(scores)
 

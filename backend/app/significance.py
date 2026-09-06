@@ -1,14 +1,21 @@
 """Rule-based significance scoring — no ML model, no LLM call, ever (see
-docs/SOURCE_OF_TRUTH.md, "Significance scoring"). Each of the three
-categories from docs/plan.md §3 is an independent, pure function of numeric
-inputs; score_significance() runs all three and returns one SignificanceScore
-per category that actually fired.
+docs/SOURCE_OF_TRUTH.md, "Significance scoring"). Each category is an
+independent, pure function of numeric inputs; score_significance() runs
+all four and returns one SignificanceScore per category that actually
+fired.
 
-A fourth category, relative/peer context (comparing an instrument's move to
-its sector index), was deliberately dropped rather than built out: it would
-have needed a sector-name -> tradeable-index-ticker mapping that doesn't
-exist anywhere else in this project, for a comparison this project isn't
-committing to (see docs/plan.md §3 history — removed by request).
+The fourth category, relative/peer context, was originally dropped as
+needing "a sector-name -> tradeable-index-ticker mapping that doesn't
+exist anywhere in this project." That's still true for per-sector
+indices — India doesn't have a clean, free, per-sector index feed this
+project could route through MarketDataProvider. What it does have is
+NIFTY 50 (^NSEI), already tracked as a reference instrument with its own
+real Diff history. Comparing every equity against the broad market in the
+same window is a narrower claim than "vs its own sector," but it's a
+real, honest one: "relative" fires when an instrument's move diverges
+from NIFTY 50's move by more than a flat threshold — deliberately a
+threshold, not another z-score, since a second statistical model here
+would cost simplicity for a comparison that doesn't need one.
 """
 
 import statistics
@@ -28,6 +35,13 @@ MIN_DAILY_RETURNS_FOR_STATISTICAL = 20
 SMA_SHORT_WINDOW = 20
 SMA_LONG_WINDOW = 50
 FIFTY_TWO_WEEK_TRADING_DAYS = 252
+
+# A flat divergence-from-the-index threshold, not a z-score: a stock
+# moving 3 percentage points differently from NIFTY 50 over the same
+# window is legible on its own — it doesn't need a second statistical
+# model to justify it, and a threshold is easier for a person to check by
+# hand than a distributional claim.
+RELATIVE_DEVIATION_THRESHOLD = 0.03
 
 
 def _corporate_action_between(
@@ -172,21 +186,53 @@ def _check_discrete_event(
     )
 
 
+def _check_relative_deviation(
+    diff: Diff, adjusted_return: float, index_diff: Diff | None
+) -> SignificanceScore | None:
+    """"Meaningfully changed relative to the market" — NIFTY 50 (^NSEI)'s
+    own most recent Diff stands in for "the same window" (see module
+    docstring on why NIFTY, not a per-sector index). None if no index diff
+    is available yet (e.g. NIFTY hasn't been ingested for this user), or
+    for NIFTY 50/SENSEX/USD-INR themselves — comparing the market to
+    itself isn't a meaningful check, callers simply don't pass one in for
+    those instruments.
+    """
+    if index_diff is None:
+        return None
+    relative_move = adjusted_return - index_diff.price_delta_pct
+    if abs(relative_move) < RELATIVE_DEVIATION_THRESHOLD:
+        return None
+    direction = "outperformed" if relative_move > 0 else "underperformed"
+    return SignificanceScore(
+        diff_id=diff.id,
+        category="relative",
+        score=relative_move,
+        detail=(
+            f"{direction} NIFTY 50 by {abs(relative_move):.1%} in the same window "
+            f"(instrument {adjusted_return:+.1%} vs index {index_diff.price_delta_pct:+.1%})"
+        ),
+    )
+
+
 def score_significance(
     diff: Diff,
     instrument: Instrument,
     instrument_historical: list[PricePoint],
     snapshot_before: Snapshot,
     snapshot_after: Snapshot,
+    index_diff: Diff | None = None,
 ) -> list[SignificanceScore]:
-    """Run all three significance categories from docs/plan.md §3 against one
-    Diff. Returns a SignificanceScore per category that fired — an empty
-    list means nothing about this diff crossed any threshold.
+    """Run all four significance categories against one Diff. Returns a
+    SignificanceScore per category that fired — an empty list means
+    nothing about this diff crossed any threshold.
 
     `instrument_historical` must cover strictly the days *before*
     snapshot_after (it must not include the day this diff represents) — the
     diff itself (diff.after_price / adjusted_return) is the only "today"
-    data point.
+    data point. `index_diff` is NIFTY 50's own most recent Diff (optional —
+    callers that haven't ingested it yet, or are scoring NIFTY/SENSEX/
+    USD-INR themselves, simply omit it and get three categories instead
+    of four; see _check_relative_deviation).
     """
     action = _corporate_action_between(
         instrument, snapshot_before.captured_at.date(), snapshot_after.captured_at.date()
@@ -197,5 +243,6 @@ def score_significance(
         _check_statistical_deviation(diff, instrument_historical, adjusted_return),
         _check_threshold_crossing(diff, instrument_historical, action),
         _check_discrete_event(diff, snapshot_after, action),
+        _check_relative_deviation(diff, adjusted_return, index_diff),
     ]
     return [score for score in candidates if score is not None]

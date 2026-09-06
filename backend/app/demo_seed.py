@@ -20,13 +20,17 @@ from sqlalchemy.orm import Session
 
 from app.diff_engine import compute_diff
 from app.embeddings import get_embedding_provider
-from app.ingestion.run_ingestion import HISTORICAL_LOOKBACK_DAYS, _ingest_news_for_instrument
+from app.ingestion.run_ingestion import HISTORICAL_LOOKBACK_DAYS, _ingest_news_for_instrument, _latest_diff
 from app.models import Instrument, Snapshot, WatchlistItem
 from app.providers.base import MarketDataProvider
 from app.providers.config import get_market_data_provider
 from app.providers.google_news_rss import GoogleNewsRSSProvider
 from app.seed import DEMO_USER_ID, REFERENCE_INSTRUMENT_IDS
 from app.significance import score_significance
+
+# Same stand-in for "the market" as app/ingestion/run_ingestion.py's own
+# Category 4 wiring — see that module for why NIFTY specifically.
+INDEX_INSTRUMENT_ID = "^NSEI"
 
 # Picked for a mix of significance categories and because they're large,
 # frequently-covered companies with real Google News RSS results — not the
@@ -57,9 +61,15 @@ def seed_demo_scenario(
 
     result = {"instruments_seeded": [], "instruments_skipped": [], "errors": []}
 
-    owned_instruments = [(instrument_id, user_id) for instrument_id in DEMO_SCENARIO_INSTRUMENTS] + [
-        (instrument_id, DEMO_USER_ID) for instrument_id in REFERENCE_INSTRUMENT_IDS
+    # Reference instruments first, not last: NIFTY 50's own diff (computed
+    # inside this same loop, captured into index_diff below) needs to
+    # exist before the personal-story equities are scored, so their
+    # Category 4 (relative-to-the-market) check has something real to
+    # compare against on a completely fresh run.
+    owned_instruments = [(instrument_id, DEMO_USER_ID) for instrument_id in REFERENCE_INSTRUMENT_IDS] + [
+        (instrument_id, user_id) for instrument_id in DEMO_SCENARIO_INSTRUMENTS
     ]
+    index_diff = None
 
     for instrument_id, owner_id in owned_instruments:
         instrument = session.get(Instrument, instrument_id)
@@ -76,6 +86,12 @@ def seed_demo_scenario(
         )
         if already_seeded is not None:
             result["instruments_skipped"].append(f"{instrument_id} (already has snapshot history)")
+            if instrument_id == INDEX_INSTRUMENT_ID:
+                # NIFTY was seeded by an earlier call (e.g. a different
+                # user ran this before) — its diff still exists, just not
+                # freshly computed by *this* call, so fetch it rather than
+                # leaving later equities with no index to compare against.
+                index_diff = _latest_diff(session, INDEX_INSTRUMENT_ID, DEMO_USER_ID)
             continue
 
         try:
@@ -128,7 +144,17 @@ def seed_demo_scenario(
             session.add(diff)
             session.flush()
 
-            scores = score_significance(diff, instrument, current_historical, prior_snapshot, current_snapshot)
+            if instrument_id == INDEX_INSTRUMENT_ID:
+                index_diff = diff  # this run's own fresh NIFTY diff — available to every equity scored after it
+
+            scores = score_significance(
+                diff,
+                instrument,
+                current_historical,
+                prior_snapshot,
+                current_snapshot,
+                index_diff=index_diff if instrument_id not in REFERENCE_INSTRUMENT_IDS else None,
+            )
             session.add_all(scores)
 
             news_created = _ingest_news_for_instrument(

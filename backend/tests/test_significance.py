@@ -12,6 +12,7 @@ from app.models import Diff, Instrument, Snapshot
 from app.providers.base import PricePoint
 from app.significance import (
     _check_discrete_event,
+    _check_relative_deviation,
     _check_statistical_deviation,
     _check_threshold_crossing,
     score_significance,
@@ -243,3 +244,62 @@ def test_corporate_action_exclusion_generalizes_to_a_stock_split():
     assert "statistical" not in categories
     assert "threshold" not in categories
     assert "event" in categories
+
+
+# --- Category 4: relative/peer context (vs NIFTY 50) ---
+
+
+def test_relative_deviation_flags_a_large_divergence_from_the_index():
+    diff = _diff(before_price=100.0, after_price=105.0)  # instrument +5%
+    index_diff = _diff(before_price=24000.0, after_price=24240.0, instrument_id="^NSEI")  # NIFTY +1%
+
+    result = _check_relative_deviation(diff, adjusted_return=diff.price_delta_pct, index_diff=index_diff)
+
+    assert result is not None
+    assert result.category == "relative"
+    assert result.score == pytest.approx(0.04, abs=1e-4)  # 5% - 1%
+    assert "outperformed" in result.detail
+
+
+def test_relative_deviation_none_for_a_small_divergence():
+    diff = _diff(before_price=100.0, after_price=101.5)  # instrument +1.5%
+    index_diff = _diff(before_price=24000.0, after_price=24120.0, instrument_id="^NSEI")  # NIFTY +0.5%
+
+    result = _check_relative_deviation(diff, adjusted_return=diff.price_delta_pct, index_diff=index_diff)
+
+    assert result is None  # 1 percentage point apart, under the 3-point threshold
+
+
+def test_relative_deviation_none_without_an_index_diff():
+    diff = _diff(before_price=100.0, after_price=110.0)
+
+    result = _check_relative_deviation(diff, adjusted_return=diff.price_delta_pct, index_diff=None)
+
+    assert result is None  # no NIFTY 50 diff available yet — nothing to compare against, not a fabricated flag
+
+
+def test_relative_deviation_flags_underperformance_too():
+    diff = _diff(before_price=100.0, after_price=97.0)  # instrument -3%
+    index_diff = _diff(before_price=24000.0, after_price=24240.0, instrument_id="^NSEI")  # NIFTY +1%
+
+    result = _check_relative_deviation(diff, adjusted_return=diff.price_delta_pct, index_diff=index_diff)
+
+    assert result is not None
+    assert "underperformed" in result.detail
+
+
+def test_score_significance_includes_relative_category_only_when_index_diff_is_passed():
+    closes = _baseline_closes()
+    historical = _bars(closes)
+    before = _snapshot("TEST.NS", closes[-1], day=21)
+    after = _snapshot("TEST.NS", closes[-1] * 1.05, day=22)  # +5%, no other category should fire
+    diff = compute_diff(before, after)
+    diff.id = 3
+    instrument = _instrument(id="TEST.NS")
+    index_diff = _diff(before_price=24000.0, after_price=24240.0, instrument_id="^NSEI")  # NIFTY +1%
+
+    without_index = score_significance(diff, instrument, historical, before, after)
+    with_index = score_significance(diff, instrument, historical, before, after, index_diff=index_diff)
+
+    assert "relative" not in {s.category for s in without_index}  # backward compatible: omitted -> 3 categories
+    assert "relative" in {s.category for s in with_index}
